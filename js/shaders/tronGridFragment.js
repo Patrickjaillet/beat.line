@@ -1,37 +1,43 @@
 export const tronGridFragment = `
+varying vec2 vUv;
 uniform float uTime;
 uniform float uBeat;
 uniform vec3 uColor;
-varying vec2 vUv;
-varying vec3 vWorldPos;
+
+// Fonction pour dessiner une grille
+float grid(vec2 uv, float res, float width) {
+    vec2 grid_uv = fract(uv * res);
+    vec2 grid_dist = min(grid_uv, 1.0 - grid_uv);
+    float grid_line = min(grid_dist.x, grid_dist.y);
+    return 1.0 - smoothstep(width - 0.01, width + 0.01, grid_line);
+}
 
 void main() {
-    // Infinite Grid Logic
-    // Align grid with world units (1 unit = 1 lane width approx)
-    vec2 uv = vWorldPos.xz;
+    vec2 uv = vUv;
     
-    // Scroll grid to match note speed (30 units/s)
-    // Moving towards camera (+Z) means texture moves -Z (decreasing Y in UV)
-    uv.y -= uTime * 30.0; 
-    
-    // Anti-aliased grid lines
-    vec2 grid = abs(fract(uv - 0.5) - 0.5) / fwidth(uv);
-    float line = min(grid.x, grid.y);
-    float gridIntensity = 1.0 - min(line, 1.0);
-    
-    // Dark PBR-like base with high emissive lines
-    vec3 baseColor = vec3(0.005, 0.005, 0.01); 
-    vec3 neonColor = uColor * 2.0; // Boost for bloom
-    
-    vec3 finalColor = mix(baseColor, neonColor, gridIntensity);
-    finalColor += neonColor * gridIntensity * uBeat * 0.5; // Beat pulse
-    
-    // Highlight the main track area (Lanes are between x = -2 and x = 2)
-    float trackMask = step(abs(vWorldPos.x), 2.0);
-    finalColor += neonColor * 0.1 * trackMask * (1.0 - gridIntensity); 
+    // Fait défiler la grille vers le joueur
+    uv.y += uTime * 0.2;
 
-    // Distance Fog
-    float alpha = smoothstep(50.0, 10.0, length(vWorldPos.xz - vec2(0.0, 6.0)));
-    gl_FragColor = vec4(finalColor, alpha);
+    // Combine une grille principale et une grille secondaire
+    float grid_major = grid(uv, 5.0, 0.01);
+    float grid_minor = grid(uv, 20.0, 0.005);
+    float grid_value = grid_major * 1.5 + grid_minor * 0.7;
+    
+    // Ajoute une onde de pulsation qui se déplace sur la grille
+    float pulse_wave = smoothstep(0.9, 1.0, fract(uv.y * 5.0 - uTime * 2.0));
+    pulse_wave *= (1.0 - fract(uv.y * 5.0));
+    
+    vec3 color = uColor * (grid_value + pulse_wave * uBeat * 1.2);
+    
+    // Ajoute un effet de scanlines horizontales
+    color *= 0.8 + 0.2 * sin(vUv.y * 1000.0);
+    
+    // --- CORRECTION DU FADE ---
+    // Avant : smoothstep(0.6, 0.9, vUv.y) -> Visible seulement au fond (0.9)
+    // Maintenant : 1.0 - smoothstep(...) -> Visible devant, s'efface au fond
+    float horizon_fade = 1.0 - smoothstep(0.7, 1.0, vUv.y); 
+    // -------------------------
+    
+    gl_FragColor = vec4(color * horizon_fade, horizon_fade);
 }
 `;

@@ -37,21 +37,15 @@ export class InputHandler {
 
     handleInput(code, isDown) {
         if (this.replayManager && this.replayManager.isRecording) this.replayManager.recordEvent(this.conductor.songPosition, code, isDown);
-        if (this.editorCallback) { this.editorCallback(code, isDown); }
         const lane = this.getLane(code);
         if (lane !== null) {
-            let targetLane = lane;
-            if (this.noteFactory.swapFactor > 0.5) {
-                if (targetLane === 1) targetLane = 2;
-                else if (targetLane === 2) targetLane = 1;
-            }
-            
+            if (this.editorCallback) { this.editorCallback(code, isDown); return; }
+
             if (isDown) {
-                this.noteFactory.triggerLane(targetLane);
-                const hit = this.noteFactory.checkHit(targetLane, this.conductor.songPosition);
-                if (hit) console.log(`HIT Lane ${targetLane}!`);
+                this.noteFactory.triggerLane(lane);
+                this.noteFactory.checkHit(lane, this.conductor.songPosition);
             } else {
-                this.noteFactory.checkRelease(targetLane, this.conductor.songPosition);
+                this.noteFactory.checkRelease(lane, this.conductor.songPosition);
             }
         }
     }

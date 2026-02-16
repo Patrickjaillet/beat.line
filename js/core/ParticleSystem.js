@@ -231,4 +231,38 @@ export class ParticleSystem {
             }
         }
     }
+
+    dispose() {
+        // Clean up pools by removing from scene
+        this.pool.forEach(p => {
+            if (p.parent) this.scene.remove(p);
+            p.material.dispose();
+        });
+        this.ringPool.forEach(r => {
+            if (r.parent) this.scene.remove(r);
+            r.material.dispose();
+        });
+
+        // Dispose of shared geometries
+        this.geometry.dispose();
+        this.shapeGeometry.dispose();
+        this.ringGeometry.dispose();
+
+        // Clear arrays
+        this.pool = [];
+        this.activeParticles = [];
+        this.ringPool = [];
+        this.activeRings = [];
+
+        // Clean up ambient particles if they exist
+        if (this.ambientParticles) {
+            this.scene.remove(this.ambientParticles);
+            this.ambientParticles.geometry.dispose();
+            this.ambientParticles.material.dispose();
+            this.ambientParticles = null;
+        }
+
+        // Clean up cached canvas textures
+        if (this.textures) Object.values(this.textures).forEach(texture => texture.dispose());
+    }
 }

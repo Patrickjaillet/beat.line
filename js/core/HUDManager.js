@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 
 export class HUDManager {
-    constructor(game, scoreManager) {
+    constructor(game, scoreManager, particleSystem) {
         this.game = game;
         this.scoreManager = scoreManager;
+        this.particleSystem = particleSystem;
         this.container = null;
         this.scoreEl = null;
         this.comboEl = null;
@@ -192,31 +193,30 @@ export class HUDManager {
         this.container.appendChild(progressContainer);
 
         // Key Overlay (Bottom Center)
-        if (!this.game.isMobile) {
-            const keyContainer = document.createElement('div');
-            Object.assign(keyContainer.style, {
-                position: 'absolute', bottom: '80px', left: '50%', transform: 'translateX(-50%)',
-                display: 'flex', gap: '10px'
-            });
+        const keyContainer = document.createElement('div');
+        Object.assign(keyContainer.style, {
+            position: 'absolute', bottom: '80px', left: '50%', transform: 'translateX(-50%)',
+            display: 'flex', gap: '10px'
+        });
 
-            for (let i = 0; i < 4; i++) {
-                const key = document.createElement('div');
-                Object.assign(key.style, {
-                    width: '50px', height: '50px', border: '2px solid rgba(255,255,255,0.3)',
-                    borderRadius: '8px', background: 'rgba(0,0,0,0.5)',
-                    display: 'flex', justifyContent: 'center', alignItems: 'center',
-                    color: '#fff', fontWeight: 'bold', fontSize: '1.2em',
-                    transition: 'all 0.05s'
-                });
-                // Default labels D F J K
-                const labels = ['D', 'F', 'J', 'K'];
-                key.innerText = labels[i];
-                
-                this.keyOverlay.push(key);
-                keyContainer.appendChild(key);
-            }
-            this.container.appendChild(keyContainer);
+        for (let i = 0; i < 4; i++) {
+            const key = document.createElement('div');
+            Object.assign(key.style, {
+                width: '50px', height: '50px', border: '2px solid rgba(255,255,255,0.3)',
+                borderRadius: '8px', background: 'rgba(0,0,0,0.5)',
+                display: 'flex', justifyContent: 'center', alignItems: 'center',
+                color: '#fff', fontWeight: 'bold', fontSize: '1.2em',
+                transition: 'all 0.05s'
+            });
+            // Use keybindings from settings
+            const keyBinding = this.game.settings.keyBindings[i]; // e.g., "KeyD"
+            const keyLabel = keyBinding.replace('Key', ''); // "D"
+            key.innerText = keyLabel;
+            
+            this.keyOverlay.push(key);
+            keyContainer.appendChild(key);
         }
+        this.container.appendChild(keyContainer);
 
         document.getElementById('ui-layer').appendChild(this.container);
     }
@@ -339,6 +339,14 @@ export class HUDManager {
         });
 
         anim.onfinish = () => el.remove();
+
+        // Trigger Judgment VFX
+        if (this.particleSystem && text !== 'MISS') {
+            // Spawn particles in the center of the 3D view
+            const position = new THREE.Vector3(0, 1.5, 0); 
+            const threeColor = new THREE.Color(color);
+            this.particleSystem.spawnExplosion(position, threeColor.getHex());
+        }
     }
 
     showStartSequence() {

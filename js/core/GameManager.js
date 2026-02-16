@@ -75,7 +75,6 @@ export class GameManager {
         this.multiplayerSocket = null;
         this.currentCampaignLevel = -1;
         this.customChart = null;
-        this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         
         this.modifiers = {
             hidden: false,
@@ -90,7 +89,6 @@ export class GameManager {
         this.loadingScene = null;
         this.loadingCamera = null;
         this.loadingMesh = null;
-        this.orientationOverlay = null;
 
         this.init();
     }
@@ -185,22 +183,7 @@ export class GameManager {
         ], `<div style="font-size: 1.2em; margin-top: 10px; color: #fff; text-shadow: 0 0 10px #fff;">CLICK TO START AUDIO ENGINE</div>
             <div style="position: absolute; bottom: 50px; width: 100%; text-align: center; color: #00f3ff; font-family: 'Orbitron', sans-serif; font-size: 1em; text-shadow: 0 0 5px #00f3ff; opacity: 0.8; animation: tipPulse 3s infinite;">${randomTip}</div>
             <style>@keyframes tipPulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }</style>`, true);
-
         window.addEventListener(EVENTS.WINDOW_RESIZE, () => this.onResize());
-        this.checkOrientation();
-
-        // Global Haptic Feedback for Mobile UI
-        window.addEventListener('click', (e) => {
-            if (!this.isMobile) return;
-            let el = e.target;
-            while (el && el !== document.body) {
-                if (el.tagName === 'BUTTON' || (el.classList && el.classList.contains('interactive'))) {
-                    this.vibrate(15);
-                    break;
-                }
-                el = el.parentElement;
-            }
-        });
         
         this.startLoop();
     }
@@ -214,40 +197,6 @@ export class GameManager {
         this.sceneManager.resize(width, height);
         if (this.loadingMesh) {
             this.loadingMesh.material.uniforms.uResolution.value.set(width, height);
-        }
-        this.checkOrientation();
-    }
-
-    checkOrientation() {
-        if (!this.isMobile) return;
-
-        const isLandscape = window.innerWidth > window.innerHeight;
-
-        if (isLandscape) {
-            if (!this.orientationOverlay) {
-                this.orientationOverlay = document.createElement('div');
-                Object.assign(this.orientationOverlay.style, {
-                    position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
-                    background: '#000', zIndex: '9999', display: 'flex',
-                    justifyContent: 'center', alignItems: 'center', color: '#fff',
-                    fontFamily: 'Orbitron, sans-serif', textAlign: 'center', padding: '20px'
-                });
-                this.orientationOverlay.innerHTML = `
-                    <div style="font-size: 4em; margin-bottom: 20px;">↻</div>
-                    <div style="font-size: 1.5em; color: #00f3ff;">PLEASE ROTATE YOUR DEVICE</div>
-                    <div style="color: #aaa; margin-top: 10px;">Portrait mode required</div>
-                `;
-                document.body.appendChild(this.orientationOverlay);
-            }
-        } else if (this.orientationOverlay) {
-            this.orientationOverlay.remove();
-            this.orientationOverlay = null;
-        }
-    }
-
-    vibrate(pattern = 15) {
-        if (this.isMobile && navigator.vibrate) {
-            navigator.vibrate(pattern);
         }
     }
 

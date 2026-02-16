@@ -131,6 +131,51 @@ export class AudioManager {
         osc.stop(this.ctx.currentTime + 0.5);
     }
 
+    playExplosionSFX() {
+        if (this.ctx.state !== 'running') return;
+
+        // Low-frequency boom (noise)
+        const bufferSize = this.ctx.sampleRate * 1.5; // 1.5 seconds of noise
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() * 2 - 1);
+        }
+
+        const noiseSource = this.ctx.createBufferSource();
+        noiseSource.buffer = buffer;
+
+        const lowpass = this.ctx.createBiquadFilter();
+        lowpass.type = 'lowpass';
+        lowpass.frequency.setValueAtTime(400, this.ctx.currentTime);
+        lowpass.frequency.exponentialRampToValueAtTime(50, this.ctx.currentTime + 1.0);
+
+        const noiseGain = this.ctx.createGain();
+        noiseGain.gain.setValueAtTime(0.8, this.ctx.currentTime);
+        noiseGain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 1.2);
+
+        noiseSource.connect(lowpass);
+        lowpass.connect(noiseGain);
+        noiseGain.connect(this.masterGain);
+        noiseSource.start();
+        noiseSource.stop(this.ctx.currentTime + 1.5);
+
+        // High-frequency crack (oscillator)
+        const crackOsc = this.ctx.createOscillator();
+        crackOsc.type = 'sawtooth';
+        crackOsc.frequency.setValueAtTime(2000, this.ctx.currentTime);
+        crackOsc.frequency.exponentialRampToValueAtTime(500, this.ctx.currentTime + 0.1);
+
+        const crackGain = this.ctx.createGain();
+        crackGain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+        crackGain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.15);
+
+        crackOsc.connect(crackGain);
+        crackGain.connect(this.masterGain);
+        crackOsc.start();
+        crackOsc.stop(this.ctx.currentTime + 0.2);
+    }
+
     getAverageFrequency() {
         this.analyser.getByteFrequencyData(this.dataArray);
         let sum = 0;

@@ -1,70 +1,23 @@
-# Beat.Line
+# Beat.Line - Documentation
 
-**Beat.Line** is a high-performance, web-based rhythm game built with **Three.js** and **Web Audio API**. It features a cyberpunk aesthetic, procedural generation, and advanced gameplay mechanics inspired by classic arcade rhythm games.
+Bienvenue dans la documentation de Beat.Line, un jeu de rythme ambitieux développé avec les technologies web modernes.
 
-![Beat.Line Screenshot](../assets/screenshot.png)
+## 1. Présentation
 
-## Features
+Beat.Line est un jeu de rythme 3D qui s'exécute dans le navigateur. Il utilise **Three.js** pour le rendu graphique et l'**API Web Audio** pour une analyse et une lecture audio précises. Le projet est conçu pour être modulaire et extensible, avec une séparation claire entre les différents systèmes du jeu.
 
-- **Core Gameplay:** 4-lane rhythm action with taps, holds, and lane swaps.
-- **Visuals:** Custom GLSL shaders for backgrounds, notes, and post-processing (Bloom, Glitch).
-- **Audio:** Real-time audio analysis (FFT) for visual reactivity.
-- **Modes:** Campaign, Arcade, Multiplayer (Simulated), and Level Editor.
-- **Customization:** Skin system, themes, and note styles.
-- **Accessibility:** Colorblind modes, remappable keys, and dynamic difficulty.
-- **Tech:** WebXR support for VR gameplay, Gamepad API support, Mobile Touch & Haptics.
+## 2. Fonctionnalités Clés
 
-## Getting Started
+- **Moteur de Rendu 3D** : Scènes et effets visuels construits avec Three.js.
+- **Génération Procédurale** : Capacité à générer des cartes de notes (`charts`) automatiquement à partir de n'importe quel fichier audio MP3.
+- **Système de Scènes Modulaire** : Gestionnaire de scènes permettant des transitions fluides entre le menu, le jeu, les résultats, etc.
+- **Post-Processing Avancé** : Effets visuels comme le Bloom (lueur néon) et le Glitch pour une esthétique "cyberpunk" prononcée.
+- **Visuels Réactifs à la Musique** : Les décors et les pistes réagissent en temps réel à l'intensité de la musique.
 
-### Prerequisites
+## 3. Lancement du Projet
 
-- A modern web browser (Chrome, Firefox, Edge) with WebGL 2.0 support.
-- A local web server (e.g., Live Server, Apache, Nginx) to serve the files.
+Pour lancer Beat.Line, vous devez servir les fichiers via un serveur web local.
 
-### Installation
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/beat-line.git
-   ```
-2. Navigate to the project directory:
-   ```bash
-   cd beat-line
-   ```
-3. Start your local server pointing to the `www` directory.
-4. Open `http://localhost:8080` (or your server's port) in your browser.
-
-## Controls
-
-| Action | Keyboard | Gamepad |
-|---|---|---|
-| Lane 1 | **D** | D-Pad Left / X |
-| Lane 2 | **F** | D-Pad Up / Y |
-| Lane 3 | **J** | D-Pad Down / A |
-| Lane 4 | **K** | D-Pad Right / B |
-| Pause | **ESC** | Start |
-| Slow Motion | **Shift** | L1 / R1 |
-| Rewind (Practice) | **Backspace** | Select |
-
-### Mobile Controls
-
-- **Portrait Mode:** The screen is divided into 4 vertical touch zones.
-- **UI:** Simplified interface for smaller screens.
-
-## Architecture
-
-The project follows a modular architecture:
-
-- **`js/core/`**: Core systems (GameManager, SceneManager, AudioManager, etc.).
-- **`js/scenes/`**: Game states (MenuScene, GameScene, EditorScene, etc.).
-- **`js/shaders/`**: Custom GLSL vertex and fragment shaders.
-- **`js/utils/`**: Helper functions and constants.
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgments
-
-- **Three.js** community for the amazing library.
-- **ShaderToy** for shader inspiration.
+1.  Assurez-vous d'avoir un environnement de serveur web (par exemple WAMP, XAMPP, ou le module `http-server` de Node.js). Les chemins de fichiers (`c:\UniServerZ\www\...`) suggèrent que vous utilisez déjà une solution de ce type.
+2.  Placez les fichiers du projet à la racine de votre serveur web.
+3.  Ouvrez votre navigateur et accédez à l'adresse de votre serveur local (ex: `http://localhost/`).

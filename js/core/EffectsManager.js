@@ -20,8 +20,8 @@ export class EffectsManager {
     init(width, height) {
         this.composer.addPass(this.renderPass);
 
-        // TRON Tuning: High strength, low threshold for neon pop against black
-        this.bloomPass = new UnrealBloomPass(new THREE.Vector2(width / 2, height / 2), 1.0, 1.0, 3.0);
+        // High Contrast Neon Tuning: High strength, low threshold for intense glow
+        this.bloomPass = new UnrealBloomPass(new THREE.Vector2(width / 2, height / 2), 0.09, 0.5, 0.1);
         this.composer.addPass(this.bloomPass);
 
         this.filmPass = new FilmPass(0.5, 0.1, 1024, false); // Digital noise
@@ -46,7 +46,8 @@ export class EffectsManager {
         this.renderPass.scene = scene;
         this.renderPass.camera = camera;
         
-        this.bloomPass.strength = 1.0 + audioFreq * 1.5;
+        // The base strength is now higher, so we can tone down the audio reaction a bit. Reduced in VR.
+        this.bloomPass.strength = (this.renderer.xr.isPresenting ? 0.05 : 0.09) + audioFreq * 0.05;
         this.composer.render();
     }
 }

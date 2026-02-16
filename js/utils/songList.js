@@ -1,46 +1,101 @@
 export const songList = [
     {
         id: 'track1',
-        title: 'Gosts',
+        title: 'Fukuoka',
         artist: 'Sandefjord',
         bpm: 128,
         difficulty: 'Hard',
-        src: 'assets/songs/Ghosts.mp3',
+        src: 'assets/songs/Fukuoka.mp3',
         previewStart: 10,
         duration: 120,
-        theme: 'CITY'
+        theme: 'SAKURA'
     },
     {
         id: 'track2',
-        title: 'Pixel Heart',
+        title: 'Kamakura',
         artist: 'Sandefjord',
         bpm: 140,
         difficulty: 'Expert',
-        src: 'assets/songs/Pixel Heart High Score.mp3',
+        src: 'assets/songs/Kamakura.mp3',
         previewStart: 0,
         duration: 145,
-        theme: 'MONOLITH'
+        theme: 'SHIBUYA'
     },
     {
         id: 'track3',
-        title: 'Clockwork',
+        title: 'Kyoto',
         artist: 'Sandefjord',
         bpm: 110,
         difficulty: 'Normal',
-        src: 'assets/songs/Clockwork.mp3',
+        src: 'assets/songs/Kyoto.mp3',
         previewStart: 15,
         duration: 100,
-        theme: 'SPACE'
+        theme: 'SAKURA'
     },
     {
         id: 'track4',
-        title: 'Toki',
+        title: 'Nagoya',
         artist: 'Sandefjord',
         bpm: 180,
         difficulty: 'Expert',
-        src: 'assets/songs/Toki.mp3',
+        src: 'assets/songs/Nagoya.mp3',
         previewStart: 15,
         duration: 100,
-        theme: 'CITY'
+        theme: 'SHIBUYA'
+    },
+        {
+        id: 'track1',
+        title: 'Nara',
+        artist: 'Sandefjord',
+        bpm: 128,
+        difficulty: 'Hard',
+        src: 'assets/songs/Nara.mp3',
+        previewStart: 10,
+        duration: 120,
+        theme: 'SAKURA'
+    },
+    {
+        id: 'track2',
+        title: 'Osaka',
+        artist: 'Sandefjord',
+        bpm: 140,
+        difficulty: 'Expert',
+        src: 'assets/songs/Osaka.mp3',
+        previewStart: 0,
+        duration: 145,
+        theme: 'SHIBUYA'
+    },
+    {
+        id: 'track3',
+        title: 'Sapporo',
+        artist: 'Sandefjord',
+        bpm: 110,
+        difficulty: 'Normal',
+        src: 'assets/songs/Sapporo.mp3',
+        previewStart: 15,
+        duration: 100,
+        theme: 'SAKURA'
+    },
+    {
+        id: 'track4',
+        title: 'Tokyo',
+        artist: 'Sandefjord',
+        bpm: 180,
+        difficulty: 'Expert',
+        src: 'assets/songs/Tokyo.mp3',
+        previewStart: 15,
+        duration: 100,
+        theme: 'SHIBUYA'
+    },
+    {
+        id: 'track4',
+        title: 'Yokohama',
+        artist: 'Sandefjord',
+        bpm: 180,
+        difficulty: 'Expert',
+        src: 'assets/songs/Yokohama.mp3',
+        previewStart: 15,
+        duration: 100,
+        theme: 'SAKURA'
     }
 ];
