@@ -27,8 +27,18 @@ export class ResultsScene extends BaseScene {
 
     createUI() {
         const stats = this.game.lastStats || { score: 0, maxCombo: 0, perfects: 0, goods: 0, misses: 0 };
-        const rank = stats.score > 5000 ? 'S' : stats.score > 3000 ? 'A' : stats.score > 1000 ? 'B' : 'C';
-        const rankColor = rank === 'S' ? '#ffd700' : rank === 'A' ? '#00f3ff' : rank === 'B' ? '#00ff00' : '#ff0055';
+
+        const totalNotes = (stats.perfects || 0) + (stats.goods || 0) + (stats.misses || 0);
+        const accuracy = totalNotes > 0 ? ((stats.perfects || 0) + (stats.goods || 0) * 0.5) / totalNotes : 0;
+
+        let rank = 'F';
+        if (accuracy >= 0.95) rank = 'S';
+        else if (accuracy >= 0.85) rank = 'A';
+        else if (accuracy >= 0.7) rank = 'B';
+        else if (accuracy >= 0.5) rank = 'C';
+        else if (accuracy >= 0.3) rank = 'D';
+
+        const rankColor = rank === 'S' ? '#ffd700' : rank === 'A' ? '#00f3ff' : rank === 'B' ? '#00ff00' : rank === 'C' ? '#ffcc00' : '#ff0055';
 
         this.container = document.createElement('div');
         Object.assign(this.container.style, {
@@ -49,6 +59,7 @@ export class ResultsScene extends BaseScene {
                 <div style="color: #fff; border-top: 1px solid #555; padding-top: 10px; margin-top: 10px;">MAX COMBO</div>
                 <div style="text-align: right; border-top: 1px solid #555; padding-top: 10px; margin-top: 10px;">${stats.maxCombo}</div>
             </div>
+            <div style="font-size: 1em; color: #fff; opacity: 0.8;">Accuracy: ${Math.round(accuracy * 100)}% (${totalNotes} notes)</div>
         `;
 
         const canvas = document.createElement('canvas');
@@ -68,6 +79,20 @@ export class ResultsScene extends BaseScene {
         });
         btn.onclick = () => this.game.sceneManager.switchScene(SCENE_NAMES.MENU);
         this.container.appendChild(btn);
+
+        const retryBtn = document.createElement('button');
+        retryBtn.innerText = 'RETRY';
+        retryBtn.className = 'interactive';
+        Object.assign(retryBtn.style, {
+            padding: '15px', background: 'transparent',
+            border: `2px solid #00ff00`, color: '#00ff00',
+            cursor: 'pointer', fontFamily: 'inherit', fontSize: '1.5em'
+        });
+        retryBtn.onclick = () => {
+            this.game.isReplay = false;
+            this.game.sceneManager.switchScene(SCENE_NAMES.GAME);
+        };
+        this.container.appendChild(retryBtn);
 
         if (this.game.replayData) {
             const replayBtn = document.createElement('button');
@@ -102,17 +127,67 @@ export class ResultsScene extends BaseScene {
         const maxTime = history[history.length - 1].time;
         const range = 0.2; // +/- 0.2s range
 
+        // Draw axes
+        ctx.strokeStyle = '#999';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(40, 10); ctx.lineTo(40, h - 20); // Y axis
+        ctx.lineTo(w - 10, h - 20); // X axis
+        ctx.stroke();
+
+        // Axes labels
+        ctx.fillStyle = '#ccc';
+        ctx.font = '12px Arial';
+        ctx.fillText('Time →', w - 50, h - 5);
+        ctx.save();
+        ctx.translate(10, 30);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText('Timing Precision (±s)', 0, 0);
+        ctx.restore();
+
+        // Y ticks
+        for (let i = -2; i <= 2; i++) {
+            const y = midY + (i * (h / 2 / 2));
+            const label = `${(i * 0.05).toFixed(2)}`;
+            ctx.strokeStyle = '#444';
+            ctx.beginPath(); ctx.moveTo(36, y); ctx.lineTo(44, y); ctx.stroke();
+            ctx.fillText(label, 5, y + 4);
+        }
+
+        // X ticks
+        const steps = 5;
+        for (let i = 0; i <= steps; i++) {
+            const x = 40 + ((w - 50) / steps) * i;
+            const timeLabel = ((maxTime / steps) * i).toFixed(1);
+            ctx.strokeStyle = '#444';
+            ctx.beginPath(); ctx.moveTo(x, h - 20); ctx.lineTo(x, h - 16); ctx.stroke();
+            ctx.fillText(`${timeLabel}s`, x - 8, h - 2);
+        }
+
+        // Plot points
         history.forEach(hit => {
-            const x = (hit.time / maxTime) * w;
+            const x = 40 + (hit.time / maxTime) * (w - 50);
             if (hit.type === 'miss') {
                 ctx.fillStyle = '#ff0055';
-                ctx.fillRect(x - 1, 0, 2, h);
+                ctx.fillRect(x - 2, h - 20 - 10, 4, 10);
             } else {
                 const y = midY - (hit.diff / range) * (h / 2);
                 ctx.fillStyle = hit.type === 'perfect' ? '#00ffff' : '#00ff00';
                 ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
             }
         });
+
+        // Legend
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(w - 140, 10, 130, 58);
+        ctx.strokeStyle = '#ccc';
+        ctx.strokeRect(w - 140, 10, 130, 58);
+        ctx.fillStyle = '#00ffff';
+        ctx.fillRect(w - 130, 20, 10, 10); ctx.fillStyle = '#fff'; ctx.fillText('Perfect', w - 112, 30);
+        ctx.fillStyle = '#00ff00';
+        ctx.fillRect(w - 130, 36, 10, 10); ctx.fillStyle = '#fff'; ctx.fillText('Good', w - 112, 46);
+        ctx.fillStyle = '#ff0055';
+        ctx.fillRect(w - 130, 52, 10, 10); ctx.fillStyle = '#fff'; ctx.fillText('Miss', w - 112, 62);
     }
 
     update(delta, time) {

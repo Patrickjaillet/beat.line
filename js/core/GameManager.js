@@ -43,7 +43,38 @@ export class GameManager {
         this.renderer = null;
         this.camera = null;
         this.scene = null;
-        this.clock = new THREE.Clock();
+
+        if (typeof THREE.Timer !== 'undefined') {
+            this.clock = new THREE.Timer();
+            if (typeof this.clock.start === 'function') this.clock.start();
+
+            // Normalize API: some versions may omit getElapsedTime.
+            if (typeof this.clock.getElapsedTime !== 'function') {
+                this.clock.getElapsedTime = () => {
+                    // If Timer defines elapsedTime/oldTime by itself.
+                    if (typeof this.clock.getDelta === 'function') {
+                        this.clock.getDelta();
+                    }
+                    if (typeof this.clock.elapsedTime === 'number') {
+                        return this.clock.elapsedTime;
+                    }
+                    return performance.now() / 1000;
+                };
+            }
+
+            if (typeof this.clock.getDelta !== 'function') {
+                let prev = performance.now();
+                this.clock.getDelta = () => {
+                    const now = performance.now();
+                    const delta = (now - prev) / 1000;
+                    prev = now;
+                    return delta;
+                };
+            }
+        } else {
+            this.clock = new THREE.Clock();
+        }
+
         this.currentState = GAME_STATE.BOOT;
         this.sceneManager = null;
         this.audioManager = null;
@@ -235,6 +266,10 @@ export class GameManager {
             conductor.pause();
             this.createOverlay('PAUSED', [
                 { text: 'RESUME', action: () => this.togglePause(conductor) },
+                { text: 'RESTART', action: () => {
+                    this.audioManager.resume();
+                    this.sceneManager.switchScene(SCENE_NAMES.GAME);
+                }},
                 { text: 'QUIT', action: () => {
                     this.audioManager.resume();
                     this.sceneManager.switchScene(SCENE_NAMES.MENU);
@@ -442,6 +477,42 @@ export class GameManager {
         }
     }
 
+    showToast(message, duration = 3000, type = 'info') {
+        const id = 'toast-notification';
+        let container = document.getElementById(id);
+        if (!container) {
+            container = document.createElement('div');
+            container.id = id;
+            Object.assign(container.style, {
+                position: 'fixed', bottom: '20px', right: '20px', width: '300px', zIndex: '9999', pointerEvents: 'none', display: 'flex', flexDirection: 'column', gap: '10px'
+            });
+            document.body.appendChild(container);
+        }
+
+        const toast = document.createElement('div');
+        Object.assign(toast.style, {
+            padding: '12px 14px', borderRadius: '8px', background: 'rgba(0, 0, 0, 0.85)', color: '#fff', fontFamily: 'var(--font-family)', boxShadow: '0 0 20px rgba(0,0,0,0.5)', opacity: '0', transition: 'opacity 0.25s', pointerEvents: 'auto'
+        });
+        if (type === 'success') toast.style.border = '2px solid #4caf50';
+        else if (type === 'warning') toast.style.border = '2px solid #ff9800';
+        else if (type === 'error') toast.style.border = '2px solid #f44336';
+        else toast.style.border = '2px solid #2196f3';
+
+        toast.innerText = message;
+        container.appendChild(toast);
+        requestAnimationFrame(() => {
+            toast.style.opacity = '1';
+        });
+
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => {
+                toast.remove();
+                if (!container.querySelector('div')) container.remove();
+            }, 250);
+        }, duration);
+    }
+
     async enterVR() {
         if (navigator.xr) {
             if (await navigator.xr.isSessionSupported('immersive-vr')) {
@@ -560,8 +631,8 @@ export class GameManager {
     }
 
     render() {
-        const delta = this.clock.getDelta();
-        const time = this.clock.getElapsedTime();
+        const delta = (this.clock && typeof this.clock.getDelta === 'function') ? this.clock.getDelta() : 0;
+        const time = (this.clock && typeof this.clock.getElapsedTime === 'function') ? this.clock.getElapsedTime() : (performance.now() / 1000);
 
         if (this.currentState === GAME_STATE.BOOT && this.loadingScene) {
             this.loadingMesh.material.uniforms.uTime.value = time;

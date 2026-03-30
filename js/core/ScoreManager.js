@@ -10,52 +10,15 @@ export class ScoreManager {
         this.health = 100;
         this.feverActive = false;
         this.drainRate = drainRate;
-        this.ui = null;
-        this.feedback = null;
-        this.healthContainer = null;
-        this.healthBar = null;
         this.noteFactory = null;
-        this.feedbackEl = null;
-        this.feedbackTimeout = null;
         this.multiplayerManager = null;
         this.hudManager = null;
         this.conductor = null;
         this.accuracyHistory = [];
         this.recentPerformance = [];
         this.isGhost = isGhost;
-        if (!isGhost) this.createUI();
     }
 
-    createUI() {
-        this.ui = document.createElement('div');
-        this.ui.className = 'score-container hud-text';
-        this.ui.innerHTML = `
-            <div class="score-label">Score</div>
-            <div class="score-value score-value-main">000000</div>
-            <div class="combo-container combo-box">
-                <div class="combo-value combo-value-main">0</div>
-                <div class="combo-label">COMBO</div>
-            </div>
-        `;
-        
-        this.feedback = document.createElement('div');
-        this.feedback.className = 'feedback-container hud-text';
-        this.feedback.innerHTML = `<div class="feedback-text feedback-item"></div>`;
-        
-        this.healthContainer = document.createElement('div');
-        this.healthContainer.className = 'health-wrapper';
-
-        this.healthBar = document.createElement('div');
-        this.healthBar.className = 'health-fill';
-
-        this.healthContainer.appendChild(this.healthBar);
-
-        document.getElementById('ui-layer').appendChild(this.ui);
-        document.getElementById('ui-layer').appendChild(this.feedback);
-        document.getElementById('ui-layer').appendChild(this.healthContainer);
-        
-        this.feedbackEl = this.feedback.querySelector('.feedback-item');
-    }
 
     setNoteFactory(noteFactory) {
         this.noteFactory = noteFactory;
@@ -107,7 +70,6 @@ export class ScoreManager {
 
         this.score += points * multiplier;
         this.health = Math.min(100, this.health + 2);
-        this.updateHealthUI();
 
         if (this.combo > 0 && this.combo % 50 === 0 && this.noteFactory) {
             this.noteFactory.spawnComboBurst();
@@ -120,7 +82,6 @@ export class ScoreManager {
             activeScene.bossManager.takeDamage(1);
         }
 
-        this.updateUI();
         if (this.game?.eventBus) {
             this.game.eventBus.emit('scoreUpdated', { score: this.score, combo: this.combo });
             this.game.eventBus.emit('comboUpdated', { combo: this.combo });
@@ -143,12 +104,10 @@ export class ScoreManager {
         this.updateDynamicDifficulty(-1);
         this.deactivateFever();
         this.health = Math.max(0, this.health - this.drainRate);
-        this.updateHealthUI();
 
         if (this.hudManager) this.hudManager.showJudgment('MISS', '#ff0000');
         if (this.game && typeof this.game.triggerGlitch === 'function') this.game.triggerGlitch();
         if (this.game && typeof this.game.triggerShake === 'function') this.game.triggerShake(0.8);
-        this.updateUI();
 
         // Emission d'événements pour dé-couplage et testabilité
         if (this.game?.eventBus) {
@@ -194,30 +153,13 @@ export class ScoreManager {
     }
 
     showFeedback(text, color) {
-        if (this.hudManager) return; // Use HUDManager if available
-        const el = this.feedbackEl;
-        el.innerText = text;
-        el.style.color = color;
-        
-        el.classList.remove('pop');
-        void el.offsetWidth; // Trigger reflow
-        el.classList.add('pop');
-        
-        if (this.feedbackTimeout) clearTimeout(this.feedbackTimeout);
-        this.feedbackTimeout = setTimeout(() => el.classList.remove('pop'), 500);
-    }
-
-    updateUI() {
-        if (this.isGhost && this.multiplayerManager) { this.multiplayerManager.updateOpponent(this.score, this.combo); return; }
-        if (!this.ui) return;
-
-        const scoreEl = this.ui.querySelector('.score-value-main');
-        const comboEl = this.ui.querySelector('.combo-value-main');
-        const comboBox = this.ui.querySelector('.combo-box');
-
-        if (scoreEl) scoreEl.innerText = this.score.toString().padStart(6, '0');
-        if (comboEl) comboEl.innerText = this.combo;
-        if (comboBox) comboBox.style.opacity = this.combo > 5 ? '1' : '0';
+        if (this.hudManager && typeof this.hudManager.showJudgment === 'function') {
+            this.hudManager.showJudgment(text, color);
+            return;
+        }
+        if (this.game && typeof this.game.showToast === 'function') {
+            this.game.showToast(text, 'info', 800);
+        }
     }
 
     addBonus(points) {
@@ -225,18 +167,6 @@ export class ScoreManager {
         this.updateUI();
         if (this.multiplayerManager && !this.isGhost) this.multiplayerManager.sendUpdate(this.score, this.combo);
         if (this.game && this.game.achievementManager) this.game.achievementManager.checkScore(this.score);
-    }
-
-    updateHealthUI() {
-        if (this.healthBar) {
-            this.healthBar.style.width = `${this.health}%`;
-            this.healthBar.className = 'health-fill';
-            const classList = this.healthBar.classList;
-            if (classList) {
-                if (this.health <= 20) classList.add('danger');
-                else if (this.health <= 50) classList.add('warning');
-            }
-        }
     }
 
     getStats() {

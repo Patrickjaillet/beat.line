@@ -110,21 +110,35 @@ export class ParticleSystem {
         return this.ringPool[this.ringPool.length - 10];
     }
 
+    clearEffects() {
+        this.activeParticles.forEach(p => { p.visible = false; });
+        this.activeRings.forEach(r => { r.visible = false; });
+        this.activeParticles = [];
+        this.activeRings = [];
+    }
+
     spawnExplosion(pos, color) {
-        // 1. Shockwave Ring
+        // Fully disable explosion particle effects
+        return;
+
+        const maxParticles = 120;
+        const maxRings = 10;
+        if (this.activeParticles.length >= maxParticles || this.activeRings.length >= maxRings) {
+            return;
+        }
+
         const ring = this.getFreeRing();
-        if (ring) {
+        if (ring && this.activeRings.length < maxRings) {
             ring.visible = true;
             ring.position.copy(pos);
-            ring.rotation.set(0, 0, 0); // Face Z axis
+            ring.rotation.set(0, 0, 0);
             ring.material.color.setHex(color);
             ring.material.opacity = 0.8;
             ring.scale.setScalar(1.0);
-            ring.userData = { life: 0.3, maxLife: 0.3 };
+            ring.userData = { life: 0.25, maxLife: 0.25 };
             this.activeRings.push(ring);
         }
 
-        // 2. Sparks
         const shape = this.game ? (this.game.settings.particleShape || 'Spark') : 'Spark';
         let useTexture = false;
         let texture = null;
@@ -134,13 +148,16 @@ export class ParticleSystem {
             texture = this.getTextureForShape(shape);
         }
 
-        const count = this.game.settings.zenMode ? 6 : 12;
+        const available = Math.max(0, maxParticles - this.activeParticles.length);
+        const count = Math.min(this.game.settings.zenMode ? 6 : 12, available);
+        if (count <= 0) return;
+
         for (let i = 0; i < count; i++) {
             const p = this.getFreeParticle();
             p.visible = true;
             p.position.copy(pos);
             p.material.color.setHex(color);
-            
+
             if (useTexture) {
                 p.geometry = this.shapeGeometry;
                 p.material.map = texture;
@@ -157,17 +174,17 @@ export class ParticleSystem {
 
             p.userData = {
                 vel: new THREE.Vector3(Math.cos(angle) * speed, Math.sin(angle) * speed, zSpread),
-                life: 0.4 + Math.random() * 0.4,
-                gravity: -15.0, // Strong gravity for sparks
+                life: 0.2 + Math.random() * 0.2,
+                gravity: -15.0,
                 isShape: useTexture
             };
-            
+
             if (!useTexture) {
                 p.lookAt(p.position.clone().add(p.userData.vel));
             } else {
                 p.rotation.set(0, 0, Math.random() * Math.PI * 2);
             }
-            
+
             this.activeParticles.push(p);
         }
     }

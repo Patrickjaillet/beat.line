@@ -89,6 +89,18 @@ export class SettingsScene extends BaseScene {
         this.container.appendChild(this.contentContainer);
 
         // Back Button
+        const saveBtn = document.createElement('button');
+        saveBtn.innerText = L.get('SAVE') || 'SAVE';
+        saveBtn.className = 'interactive';
+        Object.assign(saveBtn.style, {
+            padding: '15px', background: 'transparent',
+            border: '2px solid #00ff00', color: '#00ff00',
+            cursor: 'pointer', fontFamily: 'inherit', fontSize: '1.5em',
+            marginTop: '20px', width: '100%'
+        });
+        saveBtn.onclick = () => this.saveSettings();
+        this.container.appendChild(saveBtn);
+
         const backBtn = document.createElement('button');
         backBtn.innerText = L.get('BACK');
         backBtn.className = 'interactive';
@@ -98,10 +110,21 @@ export class SettingsScene extends BaseScene {
             cursor: 'pointer', fontFamily: 'inherit', fontSize: '1.5em',
             marginTop: '20px', width: '100%'
         });
-        backBtn.onclick = () => this.game.sceneManager.switchScene(SCENE_NAMES.MENU);
+        backBtn.onclick = () => {
+            if (this.hasUnsavedChanges()) {
+                this.game.createOverlay(L.get('SAVE_CHANGES_PROMPT') || 'Save changes before leaving?', [
+                    { text: L.get('YES') || 'YES', action: () => { this.saveSettings(); this.game.removeOverlay(); this.game.sceneManager.switchScene(SCENE_NAMES.MENU); } },
+                    { text: L.get('NO') || 'NO', action: () => { this.game.removeOverlay(); this.game.sceneManager.switchScene(SCENE_NAMES.MENU); } },
+                    { text: L.get('CANCEL') || 'CANCEL', action: () => { this.game.removeOverlay(); } }
+                ], '<p style="margin-top:15px; font-size:1.1em;">'+(L.get('SAVE_CHANGES_DESCRIPTION') || 'You have unsaved changes. Would you like to save before leaving?')+'</p>');
+            } else {
+                this.game.sceneManager.switchScene(SCENE_NAMES.MENU);
+            }
+        };
         this.container.appendChild(backBtn);
 
         document.getElementById('ui-layer').appendChild(this.container);
+        this.initialSettingsSnapshot = this.captureSettingsSnapshot();
         this.refreshContent();
     }
 
@@ -125,6 +148,38 @@ export class SettingsScene extends BaseScene {
         }
     }
 
+    clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+    }
+
+    saveSettings() {
+        if (this.game?.profileManager && typeof this.game.profileManager.save === 'function') {
+            this.game.profileManager.save();
+            if (typeof this.game.showToast === 'function') {
+                this.game.showToast('Settings saved', 1200, 'success');
+            }
+        }
+        this.initialSettingsSnapshot = this.captureSettingsSnapshot();
+    }
+
+    captureSettingsSnapshot() {
+        return {
+            username: this.game.profileManager?.data?.username,
+            language: this.game.settings?.language,
+            theme: this.game.settings?.theme,
+            volume: this.game.settings?.volume,
+            offset: this.game.settings?.offset,
+            keyBindings: Array.isArray(this.game.settings?.keyBindings) ? [...this.game.settings.keyBindings] : [],
+            difficulty: this.game.settings?.difficulty
+        };
+    }
+
+    hasUnsavedChanges() {
+        const current = this.captureSettingsSnapshot();
+        const initial = this.initialSettingsSnapshot || {};
+        return JSON.stringify(current) !== JSON.stringify(initial);
+    }
+
     renderGeneralTab(L) {
         // Username Input
         const userGroup = document.createElement('div');
@@ -142,21 +197,39 @@ export class SettingsScene extends BaseScene {
         userGroup.appendChild(userInput);
         this.contentContainer.appendChild(userGroup);
 
-        // Language Selector
-        const langBtn = document.createElement('button');
-        langBtn.innerText = `${L.get('LANGUAGE')}: ${this.game.settings.language}`;
-        langBtn.className = 'interactive';
-        Object.assign(langBtn.style, {
-            padding: '10px', background: 'transparent', border: '1px solid var(--primary-color)', color: 'var(--primary-color)', cursor: 'pointer', fontFamily: 'inherit', marginBottom: '10px'
+        // Language Selector (dropdown)
+        const langGroup = document.createElement('div');
+        langGroup.style.display = 'flex';
+        langGroup.style.flexDirection = 'column';
+        langGroup.style.gap = '5px';
+
+        const langLabel = document.createElement('label');
+        langLabel.innerText = L.get('LANGUAGE');
+        langLabel.style.color = '#fff';
+        langLabel.style.fontSize = '0.9em';
+        langGroup.appendChild(langLabel);
+
+        const langSelect = document.createElement('select');
+        ['EN', 'FR', 'JP'].forEach(code => {
+            const opt = document.createElement('option');
+            opt.value = code;
+            opt.innerText = code;
+            if (this.game.settings.language === code) opt.selected = true;
+            langSelect.appendChild(opt);
         });
-        langBtn.onclick = () => {
-            const langs = ['EN', 'FR', 'JP'];
-            const next = langs[(langs.indexOf(this.game.settings.language) + 1) % langs.length];
+        Object.assign(langSelect.style, {
+            padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--primary-color)', color: '#fff', fontFamily: 'inherit', cursor: 'pointer'
+        });
+        langSelect.onchange = (e) => {
+            const next = e.target.value;
             this.game.settings.language = next;
             this.game.localization.setLanguage(next);
-            this.createUI(); // Refresh UI
+            this.saveSettings();
+            this.createUI();
         };
-        this.contentContainer.appendChild(langBtn);
+        langGroup.appendChild(langSelect);
+
+        this.contentContainer.appendChild(langGroup);
 
         // Theme Selector
         const themeBtn = document.createElement('button');
@@ -170,6 +243,7 @@ export class SettingsScene extends BaseScene {
             const next = themes[(themes.indexOf(this.game.settings.theme) + 1) % themes.length];
             this.game.settings.theme = next;
             this.game.themeManager.applyTheme(next);
+            this.saveSettings();
             themeBtn.innerText = `${L.get('THEME')}: ${this.game.settings.theme}`;
             this.createUI(); // Refresh UI to apply new fonts/colors
         };
@@ -178,15 +252,17 @@ export class SettingsScene extends BaseScene {
 
     renderAudioTab(L) {
         // Volume Control
-        const volGroup = this.createSlider(L.get('GLOBAL_VOLUME'), 0, 1, 0.1, this.game.settings.volume, (val) => {
-            this.game.settings.volume = parseFloat(val);
+        const volGroup = this.createSlider(L.get('GLOBAL_VOLUME'), 0, 1, 0.1, this.clamp(this.game.settings.volume ?? 0.5, 0, 1), (val) => {
+            this.game.settings.volume = this.clamp(parseFloat(val), 0, 1);
             this.game.audioManager.setVolume(this.game.settings.volume);
+            this.saveSettings();
         });
         this.contentContainer.appendChild(volGroup);
 
         // Offset Control
-        const offsetGroup = this.createSlider(L.get('AUDIO_OFFSET') + ' (s)', -0.5, 0.5, 0.01, this.game.settings.offset, (val) => {
-            this.game.settings.offset = parseFloat(val);
+        const offsetGroup = this.createSlider(L.get('AUDIO_OFFSET') + ' (s)', -0.5, 0.5, 0.01, this.clamp(this.game.settings.offset ?? 0, -0.5, 0.5), (val) => {
+            this.game.settings.offset = this.clamp(parseFloat(val), -0.5, 0.5);
+            this.saveSettings();
         });
         this.contentContainer.appendChild(offsetGroup);
 
@@ -235,6 +311,7 @@ export class SettingsScene extends BaseScene {
         });
         ddBtn.onclick = () => {
             this.game.settings.dynamicDifficulty = !this.game.settings.dynamicDifficulty;
+            this.saveSettings();
             ddBtn.innerText = `${L.get('DYNAMIC_DIFFICULTY')}: ${this.game.settings.dynamicDifficulty ? L.get('ON') : L.get('OFF')}`;
         };
         this.contentContainer.appendChild(ddBtn);
@@ -261,10 +338,14 @@ export class SettingsScene extends BaseScene {
             });
             btn.onclick = () => { 
                 if (isUnlocked) {
-                    this.game.settings.skin = skin; this.game.applySkin(); this.createUI();
-                } else if (this.game.profileManager.unlockSkin(key, skin.cost)) {
+                    this.game.settings.skin = skin;
+                    this.saveSettings();
+                    this.game.applySkin();
                     this.createUI();
-                } else alert('Not enough credits!');
+                } else if (this.game.profileManager.unlockSkin(key, skin.cost)) {
+                    this.saveSettings();
+                    this.createUI();
+                } else this.game.showToast('Not enough credits!', 2000, 'warning');
             };
             skinGroup.appendChild(btn);
         });
@@ -281,13 +362,15 @@ export class SettingsScene extends BaseScene {
             const skins = ['Cube', 'Sphere', 'Diamond'];
             const nextIndex = (skins.indexOf(this.game.settings.noteSkin) + 1) % skins.length;
             this.game.settings.noteSkin = skins[nextIndex];
+            this.saveSettings();
             noteSkinBtn.innerText = `${L.get('NOTE_SKIN')}: ${this.game.settings.noteSkin}`;
         };
         this.contentContainer.appendChild(noteSkinBtn);
 
         // Note Size Slider
-        const sizeGroup = this.createSlider(L.get('NOTE_SIZE'), 0.5, 2.0, 0.1, this.game.settings.noteSize || 1.0, (val) => {
-            this.game.settings.noteSize = parseFloat(val);
+        const sizeGroup = this.createSlider(L.get('NOTE_SIZE'), 0.5, 2.0, 0.1, this.clamp(this.game.settings.noteSize || 1.0, 0.5, 2.0), (val) => {
+            this.game.settings.noteSize = this.clamp(parseFloat(val), 0.5, 2.0);
+            this.saveSettings();
         });
         this.contentContainer.appendChild(sizeGroup);
 
@@ -302,6 +385,7 @@ export class SettingsScene extends BaseScene {
             const shapes = ['Spark', 'Star', 'Heart', 'Note'];
             const nextIndex = (shapes.indexOf(this.game.settings.particleShape || 'Spark') + 1) % shapes.length;
             this.game.settings.particleShape = shapes[nextIndex];
+            this.saveSettings();
             particleBtn.innerText = `${L.get('PARTICLE_SHAPE')}: ${this.game.settings.particleShape}`;
         };
         this.contentContainer.appendChild(particleBtn);

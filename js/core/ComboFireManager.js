@@ -41,12 +41,19 @@ export class ComboFireManager {
     update(time, combo) {
         if (!this.mesh) return;
         this.mesh.material.uniforms.uTime.value = time;
-        
+
         // Target intensity: 0 if combo < 50, ramps up to 1 at combo 150
         const target = THREE.MathUtils.clamp((combo - 50) / 100, 0, 1);
-        
-        // Smooth transition
-        this.intensity = THREE.MathUtils.lerp(this.intensity, target, 0.05);
+
+        // If combo is low, reset more aggressively to avoid persistent fire effect.
+        const damping = target > 0 ? 0.08 : 0.2;
+        this.intensity = THREE.MathUtils.lerp(this.intensity, target, damping);
+
+        // Force zero when below threshold to avoid lingering artifact.
+        if (combo < 5 && this.intensity < 0.01) {
+            this.intensity = 0;
+        }
+
         this.mesh.material.uniforms.uIntensity.value = this.intensity;
     }
 

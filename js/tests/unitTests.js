@@ -48,18 +48,25 @@ async function testScoreManager() {
     sm.feverActive = true;
     assert.strictEqual(sm.multiplier, 6);
 
-    // noFail should prevent ScoreManager from directly triggering gameOver
+    // noFail should empêcher gameOver direct, mais il doit émettre un event healthDepleted
     let gameOverCalled = false;
+    let healthDepletedFired = false;
     gameMock.gameOver = () => { gameOverCalled = true; };
+    sm.game.eventBus = { emit: (event, payload) => {
+        if (event === 'healthDepleted') healthDepletedFired = true;
+    }};
+
     sm.health = 0;
     sm.game.modifiers.noFail = true;
     sm.registerMiss();
     assert.strictEqual(gameOverCalled, false);
+    assert.strictEqual(healthDepletedFired, false);
     assert.strictEqual(sm.health, 0);
 
     sm.game.modifiers.noFail = false;
     sm.registerMiss();
     assert.strictEqual(gameOverCalled, false);
+    assert.strictEqual(healthDepletedFired, true);
     assert.strictEqual(sm.health, 0);
 }
 
@@ -128,7 +135,7 @@ async function testNoteFactory() {
     pf.setChart({ notes: [{ lane: 0, time: 1.0, duration: 0 }] });
     pf.update(0.0, 0.016);
     assert.strictEqual(pf.activeNotes.length, 1);
-    assert.ok(Math.abs(pf.activeNotes[0].position.z + 30) < 0.1);
+    assert.ok(Math.abs(pf.activeNotes[0].position.z + 30) < 0.1); // note starts at -30
 
     pf.update(1.0, 0.016);
     assert.ok(Math.abs(pf.activeNotes[0].position.z - 0) < 0.1);

@@ -25,7 +25,7 @@ export class ReplayEditorScene extends BaseScene {
         this.camera.lookAt(0, 0, -10);
 
         if (!this.game.replayData || !this.game.selectedSong) {
-            alert("No replay data available. Play a song first.");
+            if (this.game && typeof this.game.showToast === 'function') this.game.showToast('No replay data available. Play a song first.', 'warning', 3000);
             this.game.sceneManager.switchScene(SCENE_NAMES.MENU);
             return;
         }
@@ -72,8 +72,8 @@ export class ReplayEditorScene extends BaseScene {
         controls.style.justifyContent = 'center';
 
         const playBtn = this.createBtn('PLAY/PAUSE', () => this.togglePlay());
-        const setStartBtn = this.createBtn('SET START', () => { this.startTime = this.conductor.songPosition; alert(`Start set to ${this.startTime.toFixed(2)}s`); });
-        const setEndBtn = this.createBtn('SET END', () => { this.endTime = this.conductor.songPosition; alert(`End set to ${this.endTime.toFixed(2)}s`); });
+        const setStartBtn = this.createBtn('SET START', () => { this.startTime = this.conductor.songPosition; if (this.game && typeof this.game.showToast === 'function') this.game.showToast(`Start set to ${this.startTime.toFixed(2)}s`, 'info', 1500); });
+        const setEndBtn = this.createBtn('SET END', () => { this.endTime = this.conductor.songPosition; if (this.game && typeof this.game.showToast === 'function') this.game.showToast(`End set to ${this.endTime.toFixed(2)}s`, 'info', 1500); });
         const saveBtn = this.createBtn('EXPORT CLIP', () => this.exportClip());
         const exitBtn = this.createBtn('EXIT', () => { this.conductor.stop(); this.game.sceneManager.switchScene(SCENE_NAMES.MENU); });
 

@@ -245,7 +245,7 @@ export class EditorScene extends BaseScene {
                 if (this.game.selectedSong) {
                     this.game.selectedSong.bpm = bpm;
                     this.renderGrid(); // Re-render grid with new BPM
-                    alert(`BPM updated to ${bpm}`);
+                    if (this.game && typeof this.game.showToast === 'function') this.game.showToast(`BPM updated to ${bpm}`, 'success', 1800);
                 }
             }
             this.toggleBpmTapper();
@@ -492,7 +492,7 @@ export class EditorScene extends BaseScene {
 
     saveLocal() {
         localStorage.setItem('customChart', JSON.stringify(this.chartData));
-        alert('Saved to Local Storage');
+        if (this.game && typeof this.game.showToast === 'function') this.game.showToast('Saved to Local Storage', 'success', 1800);
     }
 
     loadLocal() {
@@ -512,7 +512,7 @@ export class EditorScene extends BaseScene {
         } else {
             this.clipboard = JSON.parse(JSON.stringify(this.chartData.notes));
         }
-        alert(`Copied ${this.clipboard.length} notes to clipboard.`);
+        if (this.game && typeof this.game.showToast === 'function') this.game.showToast(`Copied ${this.clipboard.length} notes to clipboard.`, 'success', 1800);
     }
 
     pasteChart() {

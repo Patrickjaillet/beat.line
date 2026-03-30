@@ -5,6 +5,11 @@ export const TRANSLATIONS = {
         CREDITS: "CREDITS",
         QUIT: "QUIT",
         BACK: "BACK",
+        SAVE_CHANGES_PROMPT: "Save changes before leaving?",
+        SAVE_CHANGES_DESCRIPTION: "You have unsaved changes. Would you like to save before leaving?",
+        YES: "YES",
+        NO: "NO",
+        CANCEL: "CANCEL",
         LANGUAGE: "LANGUAGE",
         VOLUME: "VOLUME",
         DIFFICULTY: "DIFFICULTY",
@@ -76,7 +81,12 @@ export const TRANSLATIONS = {
         XP: "XP",
         CONNECTING: "CONNECTING...",
         UPLOADING: "UPLOADING...",
-        SYNC_COMPLETE: "SYNC COMPLETE"
+        SYNC_COMPLETE: "SYNC COMPLETE",
+        SCORE: "SCORE",
+        COMBO: "COMBO",
+        INTEGRITY: "INTEGRITY",
+        SELECT_SONG_FOR_MULTIPLAYER: "Select a song for multiplayer",
+        NEWS_TICKER_ITEMS: "BREAKING: SYSTEM BREACH DETECTED IN SECTOR 7 // TOP PLAYER 'CYPHER' REACHES 1,000,000 PTS // NEW SONG PACK 'NEON NIGHTMARE' AVAILABLE // REMINDER: DO NOT TRUST THE AI // DAILY CHALLENGE RESET IN 04:00:00 // "
     },
     FR: {
         PLAY: "JOUER",
@@ -84,6 +94,11 @@ export const TRANSLATIONS = {
         CREDITS: "CRÉDITS",
         QUIT: "QUITTER",
         BACK: "RETOUR",
+        SAVE_CHANGES_PROMPT: "Sauvegarder les modifications avant de quitter ?",
+        SAVE_CHANGES_DESCRIPTION: "Vous avez des modifications non sauvegardées. Voulez-vous enregistrer avant de quitter ?",
+        YES: "OUI",
+        NO: "NON",
+        CANCEL: "ANNULER",
         LANGUAGE: "LANGUE",
         VOLUME: "VOLUME",
         DIFFICULTY: "DIFFICULTÉ",
@@ -155,7 +170,14 @@ export const TRANSLATIONS = {
         XP: "XP",
         CONNECTING: "CONNEXION...",
         UPLOADING: "ENVOI...",
-        SYNC_COMPLETE: "SYNCHRO TERMINÉE"
+        SYNC_COMPLETE: "SYNCHRO TERMINÉE",
+        SCORE: "SCORE",
+        COMBO: "COMBO",
+        INTEGRITY: "INTÉGRITÉ",
+        SELECT_SONG_FOR_MULTIPLAYER: "Sélectionnez une chanson pour le multijoueur",
+        NEWS_TICKER_ITEMS: "DERNIÈRE MINUTE : BRÈCHE SYSTÈME DÉTECTÉE SECTEUR 7 // TOP PLAYER 'CYPHER' ATTEINT 1 000 000 PTS // NOUVEAU PACK 'NEON NIGHTMARE' DISPONIBLE // RAPPEL : NE FAITES PAS CONFIANCE À L'IA // DÉFI QUOTIDIEN REPART DANS 04:00:00 // ",
+        BOSS_BATTLE_ACTIVATED: "Boss activé !",
+        LEVEL_COMPLETED: "Niveau terminé !"
     },
     JP: {
         PLAY: "プレイ",
@@ -163,6 +185,11 @@ export const TRANSLATIONS = {
         CREDITS: "クレジット",
         QUIT: "終了",
         BACK: "戻る",
+        SAVE_CHANGES_PROMPT: "変更を保存してから離れますか？",
+        SAVE_CHANGES_DESCRIPTION: "保存されていない変更があります。離れる前に保存しますか？",
+        YES: "はい",
+        NO: "いいえ",
+        CANCEL: "キャンセル",
         LANGUAGE: "言語",
         VOLUME: "音量",
         DIFFICULTY: "難易度",
@@ -234,7 +261,14 @@ export const TRANSLATIONS = {
         XP: "XP",
         CONNECTING: "接続中...",
         UPLOADING: "アップロード中...",
-        SYNC_COMPLETE: "同期完了"
+        SYNC_COMPLETE: "同期完了",
+        SCORE: "スコア",
+        COMBO: "コンボ",
+        INTEGRITY: "インテグリティ",
+        SELECT_SONG_FOR_MULTIPLAYER: "マルチプレイヤー用の曲を選択",
+        NEWS_TICKER_ITEMS: "速報：セクター7でシステム侵害発生 // トッププレイヤー『CYPHER』が1,000,000点達成 // 新曲パック『NEON NIGHTMARE』登場 // AIを信用するな // デイリーチャレンジまで04:00:00 // ",
+        BOSS_BATTLE_ACTIVATED: "ボス出現！",
+        LEVEL_COMPLETED: "レベル完了！"
     }
 };
 

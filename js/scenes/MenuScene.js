@@ -21,6 +21,7 @@ export class MenuScene extends BaseScene {
         this.ticker = null;
         this.avatarManager = null;
         this.mouseX = 0;
+        this.songAvailability = {}; // track missing audio
         this.profilePanel = new ProfilePanel(this.game);
         this.playPanel = new PlayPanel(this);
         this.toolsPanel = new ToolsPanel(this);
@@ -29,8 +30,18 @@ export class MenuScene extends BaseScene {
         this.mouseY = 0;
         this.activeTab = 'PLAY';
 
-        this.boundMenuKeyDown = (evt) => {
-            if (evt.target && /input|textarea|select/i.test(evt.target.tagName)) return;
+        this.boundGlobalKeyDown = (evt) => {
+            // Ignore key events focused on form inputs or when a modal/overlay est ouvert
+            if (evt.target && /input|textarea|select|button/i.test(evt.target.tagName)) return;
+            if (this.game?.overlay) {
+                if (evt.key === 'Escape') {
+                    this.game.removeOverlay();
+                    evt.preventDefault();
+                }
+                return;
+            }
+
+            // LEFT/RIGHT pour navigation onglets
             if (evt.key === 'ArrowLeft' || evt.key === 'ArrowRight') {
                 const tabs = ['PLAY', 'TOOLS', 'COMMUNITY', 'SYSTEM'];
                 const idx = tabs.indexOf(this.activeTab);
@@ -40,9 +51,12 @@ export class MenuScene extends BaseScene {
                     this.refreshMenuContent();
                     evt.preventDefault();
                 }
+                return;
             }
-            if (evt.key === 'Escape') {
-                this.game.removeOverlay();
+
+            // UP/DOWN/LEFT/RIGHT pour le jeu Snake (hors priorités onglets)
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(evt.key)) {
+                this.handleSnakeInput(evt);
             }
         };
 
@@ -113,12 +127,13 @@ export class MenuScene extends BaseScene {
         this.game.audioManager.playHDDNoise();
         
         this.boundSnakeInput = this.handleSnakeInput.bind(this);
-        window.addEventListener('keydown', this.boundSnakeInput);
-        
-        window.addEventListener('mousemove', (e) => {
+        window.addEventListener('keydown', this.boundGlobalKeyDown);
+
+        this.boundMouseMove = (e) => {
             this.mouseX = (e.clientX / window.innerWidth) * 2 - 1;
             this.mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
-        });
+        };
+        window.addEventListener('mousemove', this.boundMouseMove);
 
         // Check Daily Reward
         const reward = this.game.profileManager.checkDailyReward();
@@ -132,6 +147,14 @@ export class MenuScene extends BaseScene {
         // Get primary color from CSS var
         const color = getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim();
         if (this.avatarManager) this.avatarManager.setColor(new THREE.Color(color).getHex());
+    }
+
+    updateMenuScrollHint() {
+        if (!this.menuContainer) return;
+        const isScrollable = this.menuContainer.scrollHeight > this.menuContainer.clientHeight + 1;
+        const isAtBottom = this.menuContainer.scrollTop + this.menuContainer.clientHeight >= this.menuContainer.scrollHeight - 1;
+        this.menuContainer.classList.toggle('can-scroll', isScrollable && !isAtBottom);
+        this.menuContainer.classList.toggle('scrolled-to-bottom', isAtBottom);
     }
 
     initSnakeGame() {
@@ -223,12 +246,17 @@ export class MenuScene extends BaseScene {
 
     createUI() {
         this.menuContainer = document.createElement('div');
+        this.menuContainer.className = 'menu-scrollable';
         Object.assign(this.menuContainer.style, {
             position: 'absolute', top: '50%', left: '50%',
             transform: 'translate(-50%, -50%)', width: this.game.isMobile ? '95%' : '800px',
             display: 'flex', flexDirection: 'column', gap: '15px',
             maxHeight: '80vh', overflowY: 'auto'
         });
+
+        this.boundMenuScroll = () => this.updateMenuScrollHint();
+        this.menuContainer.addEventListener('scroll', this.boundMenuScroll);
+        this.updateMenuScrollHint();
 
         const L = this.game.localization;
         const primaryColor = 'var(--primary-color)';
@@ -387,16 +415,16 @@ export class MenuScene extends BaseScene {
             borderLeft: dashed ? `1px dashed ${color}` : `4px solid ${color}`,
             color: color, cursor: 'pointer', transition: 'all 0.2s',
             fontFamily: 'var(--font-family)', fontSize: '1.1em', width: '100%',
-            textAlign: 'left', paddingLeft: '20px'
+            textAlign: 'left', paddingLeft: '20px', transform: 'translateX(0)'
         });
         
         btn.onmouseover = () => {
             btn.style.background = 'rgba(255, 255, 255, 0.1)';
-            btn.style.paddingLeft = '30px'; // Slide effect
+            btn.style.transform = 'translateX(10px)';
         };
         btn.onmouseout = () => {
             btn.style.background = 'rgba(0, 0, 0, 0.7)';
-            btn.style.paddingLeft = '20px';
+            btn.style.transform = 'translateX(0)';
         };
 
         btn.setAttribute('aria-label', text);
@@ -412,14 +440,51 @@ export class MenuScene extends BaseScene {
         return btn;
     }
 
+    async checkSongAvailability(song) {
+        if (typeof window === 'undefined' || typeof fetch !== 'function') {
+            this.songAvailability[song.id] = true;
+            return;
+        }
+
+        try {
+            const response = await fetch(song.src, { method: 'HEAD' });
+            this.songAvailability[song.id] = response.ok;
+        } catch (error) {
+            this.songAvailability[song.id] = false;
+        }
+        this.renderSongList();
+    }
+
     renderSongList() {
         this.songListContainer.innerHTML = '';
+
+        const uploadButton = this.createBtn('Upload local song/chart', () => this.handleSongUpload());
+        uploadButton.style.marginBottom = '10px';
+        this.songListContainer.appendChild(uploadButton);
+
         songList.forEach(song => {
+            if (this.songAvailability[song.id] === undefined) {
+                this.songAvailability[song.id] = null; // checking
+                this.checkSongAvailability(song);
+            }
+            const availability = this.songAvailability[song.id];
             const item = document.createElement('div');
             item.className = 'interactive';
+            let warningHtml = '';
+            if (availability === false) {
+                warningHtml = '<span style="color:#ffcc00; margin-right:6px;">⚠️</span>';
+            } else if (availability === null || availability === undefined) {
+                warningHtml = '<span style="color:#00aaff; margin-right:6px;">⏳</span>';
+            }
+
+            const highScore = this.game.profileManager.getHighScore(song.id) || 0;
+            const duration = song.duration ? `${Math.floor(song.duration / 60)}:${String(Math.round(song.duration % 60)).padStart(2, '0')}` : 'Unknown';
+            const density = song.chart?.notes?.length || (song.chart?.length || 'Unknown');
+
             item.innerHTML = `
-                <div style="font-size: 1.2em; font-weight: bold;">${song.title}</div>
+                <div style="font-size: 1.2em; font-weight: bold;">${warningHtml}${song.title}</div>
                 <div style="font-size: 0.8em; opacity: 0.8;">${song.artist} // BPM: ${song.bpm}</div>
+                <div style="font-size: 0.75em; opacity: 0.75; margin-top: 5px;">Duration: ${duration} • Notes: ${density} • High Score: ${highScore.toLocaleString()}</div>
             `;
             
             Object.assign(item.style, {
@@ -428,6 +493,50 @@ export class MenuScene extends BaseScene {
                 cursor: 'pointer', transition: 'all 0.2s', marginBottom: '5px',
                 fontFamily: 'var(--font-family)'
             });
+
+            let previewAudio = null;
+            let previewTimer = null;
+
+            item.onmouseenter = () => {
+                item.style.background = 'rgba(255, 255, 255, 0.1)';
+                item.style.borderLeft = '4px solid var(--primary-color)';
+
+                if (!song.src) return;
+                if (previewAudio) {
+                    previewAudio.pause();
+                    previewAudio = null;
+                }
+                if (previewTimer) {
+                    clearTimeout(previewTimer);
+                    previewTimer = null;
+                }
+
+                previewAudio = new Audio(song.src);
+                previewAudio.currentTime = song.previewStart || 0;
+                previewAudio.volume = 0.35;
+                previewAudio.play().catch(() => {});
+                previewTimer = setTimeout(() => {
+                    if (previewAudio) {
+                        previewAudio.pause();
+                        previewAudio.currentTime = 0;
+                        previewAudio = null;
+                    }
+                }, 3000);
+            };
+
+            item.onmouseleave = () => {
+                item.style.background = 'rgba(0, 0, 0, 0.7)';
+                item.style.borderLeft = '4px solid #333';
+                if (previewAudio) {
+                    previewAudio.pause();
+                    previewAudio.currentTime = 0;
+                    previewAudio = null;
+                }
+                if (previewTimer) {
+                    clearTimeout(previewTimer);
+                    previewTimer = null;
+                }
+            };
             
             item.onmouseover = () => {
                 item.style.background = 'rgba(255, 255, 255, 0.1)';
@@ -437,14 +546,35 @@ export class MenuScene extends BaseScene {
                 item.style.background = 'rgba(0, 0, 0, 0.7)';
                 item.style.borderLeft = '4px solid #333';
             };
-            item.onclick = () => this.selectSong(song);
+            item.onclick = () => {
+                if (availability === false) {
+                    this.game.showToast('Audio file missing for this track. Please upload a local MP3 or pick another song.', 4000, 'warning');
+                    return;
+                }
+                this.selectSong(song);
+            };
             this.songListContainer.appendChild(item);
         });
     }
 
     setupDragDrop() {
-        window.addEventListener('dragover', (e) => e.preventDefault());
-        window.addEventListener('drop', (e) => this.handleDrop(e));
+        this.boundDragOver = (e) => e.preventDefault();
+        this.boundDrop = (e) => this.handleDrop(e);
+        window.addEventListener('dragover', this.boundDragOver);
+        window.addEventListener('drop', this.boundDrop);
+    }
+
+    handleSongUpload() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.mp3,.wav,.ogg,.json';
+        input.multiple = true;
+        input.onchange = (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+            this.handleDrop({ preventDefault: () => {}, dataTransfer: { files } });
+        };
+        input.click();
     }
 
     async handleDrop(e) {
@@ -471,7 +601,7 @@ export class MenuScene extends BaseScene {
                 };
                 songList.push(song);
                 this.renderSongList();
-                alert('Custom song loaded!');
+                this.game.showToast('Custom song loaded!', 3000, 'success');
             };
             reader.readAsText(jsonFile);
         } else if (audioFile) {
@@ -501,14 +631,14 @@ export class MenuScene extends BaseScene {
             
             songList.push(song);
             this.renderSongList();
-            alert(`Generated chart for ${song.title} (${chart.notes.length} notes)`);
+            this.game.showToast(`Generated chart for ${song.title} (${chart.notes.length} notes)`, 3000, 'success');
         } else if (shaderFile) {
             const reader = new FileReader();
             reader.onload = (ev) => {
                 // Store shader in game settings or apply immediately if possible
                 // For now, we assume it's for the game background
                 this.game.customBackgroundShader = ev.target.result;
-                alert('Custom Background Shader Loaded! It will be used in-game.');
+                this.game.showToast('Custom Background Shader Loaded! It will be used in-game.', 3000, 'success');
             };
             reader.readAsText(shaderFile);
         }
@@ -532,6 +662,16 @@ export class MenuScene extends BaseScene {
         });
         btn.onclick = onClick;
         return btn;
+    }
+
+    attachCloseOnEscape(overlay) {
+        const handler = (e) => {
+            if (e.key === 'Escape') {
+                overlay.remove();
+                window.removeEventListener('keydown', handler);
+            }
+        };
+        window.addEventListener('keydown', handler);
     }
 
     createModifiersUI() {
@@ -606,6 +746,7 @@ export class MenuScene extends BaseScene {
 
         overlay.appendChild(container);
         document.body.appendChild(overlay);
+        this.attachCloseOnEscape(overlay);
     }
 
     showQuestsUI() {
@@ -684,6 +825,7 @@ export class MenuScene extends BaseScene {
 
         overlay.appendChild(box);
         document.body.appendChild(overlay);
+        this.attachCloseOnEscape(overlay);
     }
 
     showSocialUI() {
@@ -704,6 +846,25 @@ export class MenuScene extends BaseScene {
 
         box.innerHTML = `<h2 style="color:#0088ff; text-align:center; margin-bottom:20px;">${L.get('FRIENDS_LIST')}</h2>`;
         
+        // TODO: replace with real friends list from multiplayer API / websocket
+        // For now, fallback message when multiplayer manager is not connected.
+        if (!this.game.multiplayerManager || !this.game.multiplayerManager.isConnected) {
+            const placeholder = document.createElement('div');
+            placeholder.style.color = '#aaa';
+            placeholder.style.textAlign = 'center';
+            placeholder.style.margin = '20px 0';
+            placeholder.innerText = 'Multiplayer feature coming soon — connect to view your friends list.';
+            box.appendChild(placeholder);
+            const closeBtn = this.createBtn(L.get('CLOSE'), () => overlay.remove());
+            closeBtn.style.marginTop = '20px';
+            closeBtn.style.width = '100%';
+            box.appendChild(closeBtn);
+            overlay.appendChild(box);
+            document.body.appendChild(overlay);
+            this.attachCloseOnEscape(overlay);
+            return;
+        }
+
         const friends = [
             { name: 'NeonRider', status: 'Online', color: '#00ff00' },
             { name: 'GlitchQueen', status: 'In Game: Cyber City', color: '#ffff00' },
@@ -793,7 +954,7 @@ export class MenuScene extends BaseScene {
                         this.game.profileManager.data.credits -= pack.price;
                         this.game.profileManager.data.unlockedDLCs.push(pack.id);
                         if (this.game.profileManager.save) this.game.profileManager.save();
-                        alert(L.get('PACK_UNLOCKED'));
+                        if (typeof this.game.showToast === 'function') this.game.showToast(L.get('PACK_UNLOCKED'), 'success', 2500);
                         
                         // Update UI
                         btn.innerText = L.get('OWNED');
@@ -803,7 +964,7 @@ export class MenuScene extends BaseScene {
                         // Update profile display
                         this.updateProfileUI();
                     } else {
-                        alert(L.get('NOT_ENOUGH_CREDITS'));
+                        if (typeof this.game.showToast === 'function') this.game.showToast(L.get('NOT_ENOUGH_CREDITS'), 'warning', 2500);
                     }
                 };
             }
@@ -819,6 +980,7 @@ export class MenuScene extends BaseScene {
 
         overlay.appendChild(box);
         document.body.appendChild(overlay);
+        this.attachCloseOnEscape(overlay);
     }
 
     createNewsTicker() {
@@ -831,7 +993,8 @@ export class MenuScene extends BaseScene {
         });
 
         const content = document.createElement('div');
-        content.innerText = "BREAKING: SYSTEM BREACH DETECTED IN SECTOR 7 // TOP PLAYER 'CYPHER' REACHES 1,000,000 PTS // NEW SONG PACK 'NEON NIGHTMARE' AVAILABLE // REMINDER: DO NOT TRUST THE AI // DAILY CHALLENGE RESET IN 04:00:00 // ";
+        const newsItems = this.game.localization.get('NEWS_TICKER_ITEMS') || "BREAKING: SYSTEM BREACH DETECTED IN SECTOR 7 // TOP PLAYER 'CYPHER' REACHES 1,000,000 PTS // NEW SONG PACK 'NEON NIGHTMARE' AVAILABLE // REMINDER: DO NOT TRUST THE AI // DAILY CHALLENGE RESET IN 04:00:00 // ";
+        content.innerText = newsItems;
         Object.assign(content.style, {
             display: 'inline-block', paddingLeft: '100%', animation: 'ticker 20s linear infinite'
         });
@@ -916,7 +1079,11 @@ export class MenuScene extends BaseScene {
         if (!this.game.isEditor) this.game.isEditor = false; // Reset unless explicitly set
         this.game.selectedSong = song;
         this.updateLeaderboard(song.id);
-        this.game.sceneManager.switchScene(SCENE_NAMES.GAME);
+
+        this.game.createOverlay('SONG SELECTED', [
+            { text: 'START', action: () => this.game.sceneManager.switchScene(SCENE_NAMES.GAME) },
+            { text: 'CANCEL', action: () => this.game.removeOverlay() }
+        ], `<div style="margin-top:10px; font-size:1.1em; color:#fff;">${song.title} - ${song.artist}</div>`, true);
     }
 
     startDailyChallenge() {
@@ -926,20 +1093,77 @@ export class MenuScene extends BaseScene {
             drainRate: 10 + Math.random() * 20,
             mirrorMode: Math.random() > 0.5
         };
-        this.game.selectedSong = randomSong;
-        this.game.settings.noteSpeed = modifiers.noteSpeed;
-        this.game.settings.drainRate = modifiers.drainRate;
-        this.game.settings.mirrorMode = modifiers.mirrorMode;
-        this.game.isDailyChallenge = true;
-        alert(`DAILY CHALLENGE:\nSong: ${randomSong.title}\nSpeed: ${modifiers.noteSpeed.toFixed(1)}\nDrain: ${modifiers.drainRate.toFixed(1)}\nMirror: ${modifiers.mirrorMode}`);
-        this.game.sceneManager.switchScene(SCENE_NAMES.GAME);
+
+        const summaryHtml = `
+            <div style="font-size:1.1em; margin-top:10px; color:#ffffff; text-align:left;">
+                <p><strong>Song:</strong> ${randomSong.title}</p>
+                <p><strong>Speed:</strong> ${modifiers.noteSpeed.toFixed(1)}</p>
+                <p><strong>Drain:</strong> ${modifiers.drainRate.toFixed(1)}</p>
+                <p><strong>Mirror:</strong> ${modifiers.mirrorMode ? 'ON' : 'OFF'}</p>
+            </div>
+        `;
+
+        this.game.createOverlay('DAILY CHALLENGE', [
+            {
+                text: 'CONFIRM',
+                action: () => {
+                    this.game.selectedSong = randomSong;
+                    this.game.settings.noteSpeed = modifiers.noteSpeed;
+                    this.game.settings.drainRate = modifiers.drainRate;
+                    this.game.settings.mirrorMode = modifiers.mirrorMode;
+                    this.game.isDailyChallenge = true;
+                    this.game.removeOverlay();
+                    this.game.sceneManager.switchScene(SCENE_NAMES.GAME);
+                }
+            },
+            {
+                text: 'CANCEL',
+                action: () => {
+                    this.game.removeOverlay();
+                }
+            }
+        ], summaryHtml, true);
     }
 
     startMultiplayer() {
-        this.game.isMultiplayer = true;
-        this.game.isReplay = false;
-        this.game.selectedSong = songList[0]; // Default to first song for now
-        this.game.sceneManager.switchScene(SCENE_NAMES.GAME);
+        // Open a song selection overlay so user can choose before starting multiplayer.
+        const overlay = document.createElement('div');
+        Object.assign(overlay.style, {
+            position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
+            background: 'rgba(0,0,0,0.9)', zIndex: '400', display: 'flex',
+            justifyContent: 'center', alignItems: 'center'
+        });
+
+        const container = document.createElement('div');
+        Object.assign(container.style, {
+            width: '620px', maxHeight: '80%', background: '#111', border: '2px solid var(--primary-color)',
+            padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px'
+        });
+
+        const title = document.createElement('h2');
+        title.innerText = this.game.localization.get('SELECT_SONG_FOR_MULTIPLAYER') || 'Select song for multiplayer';
+        title.style.color = 'var(--primary-color)';
+        title.style.textAlign = 'center';
+        container.appendChild(title);
+
+        songList.forEach(song => {
+            const btn = this.createMenuButton(`${song.title} - ${song.artist}`, () => {
+                this.game.selectedSong = song;
+                this.game.isMultiplayer = true;
+                this.game.isReplay = false;
+                this.game.removeOverlay();
+                overlay.remove();
+                this.game.sceneManager.switchScene(SCENE_NAMES.GAME);
+            }, '#00ff00', true);
+            container.appendChild(btn);
+        });
+
+        const cancelBtn = this.createBtn(this.game.localization.get('CANCEL') || 'CANCEL', () => overlay.remove());
+        cancelBtn.style.marginTop = '10px';
+        container.appendChild(cancelBtn);
+
+        overlay.appendChild(container);
+        document.body.appendChild(overlay);
     }
 
     startVisualizer() {
@@ -984,16 +1208,18 @@ export class MenuScene extends BaseScene {
     }
 
     dispose() {
-        if (this.menuContainer) this.menuContainer.remove();
+        if (this.menuContainer) {
+            this.menuContainer.removeEventListener('scroll', this.boundMenuScroll);
+            this.menuContainer.remove();
+        }
         if (this.leaderboardContainer) this.leaderboardContainer.remove();
         if (this.profileDisplay) this.profileDisplay.remove();
         if (this.ticker) this.ticker.remove();
         this.game.audioManager.stopHDDNoise();
         if (this.avatarManager) this.avatarManager.dispose();
-        window.removeEventListener('keydown', this.boundSnakeInput);
-        window.removeEventListener('keydown', this.boundMenuKeyDown);
-        window.removeEventListener('dragover', (e) => e.preventDefault());
-        window.removeEventListener('drop', (e) => this.handleDrop(e));
+        window.removeEventListener('keydown', this.boundGlobalKeyDown);
+        window.removeEventListener('dragover', this.boundDragOver);
+        window.removeEventListener('drop', this.boundDrop);
         super.dispose();
     }
 }

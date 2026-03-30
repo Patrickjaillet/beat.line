@@ -36,10 +36,14 @@ export class PlayPanel {
         container.appendChild(divider);
 
         const diffContainer = document.createElement('div');
+        diffContainer.setAttribute('role', 'group');
+        diffContainer.setAttribute('aria-label', 'Difficulty selector');
         Object.assign(diffContainer.style, { display: 'flex', gap: '10px', justifyContent: 'center' });
 
         ['Easy', 'Normal', 'Hard'].forEach(diff => {
             const btn = document.createElement('button');
+            btn.setAttribute('role', 'radio');
+            btn.setAttribute('aria-pressed', diff === m.game.settings.difficulty ? 'true' : 'false');
             btn.innerText = diff;
             btn.className = 'interactive';
             Object.assign(btn.style, {
@@ -48,10 +52,17 @@ export class PlayPanel {
             });
             btn.onclick = () => {
                 m.setDifficulty(diff);
-                Array.from(diffContainer.children).forEach(c => c.style.borderColor = '#333');
+                Array.from(diffContainer.children).forEach(c => {
+                    c.style.borderColor = '#333';
+                    c.setAttribute('aria-pressed', 'false');
+                });
                 btn.style.borderColor = 'var(--primary-color)';
+                btn.setAttribute('aria-pressed', 'true');
             };
-            if (diff === m.game.settings.difficulty) btn.style.borderColor = 'var(--primary-color)';
+            if (diff === m.game.settings.difficulty) {
+                btn.style.borderColor = 'var(--primary-color)';
+                btn.setAttribute('aria-pressed', 'true');
+            }
             diffContainer.appendChild(btn);
         });
 

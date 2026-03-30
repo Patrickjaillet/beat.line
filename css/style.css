@@ -41,3 +41,70 @@ body, html {
 .interactive {
     pointer-events: auto;
 }
+
+.interactive:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 3px;
+}
+
+.menu-scrollable {
+    position: relative;
+    overflow-y: auto;
+    max-height: 80vh;
+}
+
+.menu-scrollable::-webkit-scrollbar {
+    width: 12px;
+}
+
+.menu-scrollable::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+}
+
+.menu-scrollable::-webkit-scrollbar-thumb {
+    background: rgba(0, 243, 255, 0.45);
+    border-radius: 10px;
+}
+
+.menu-scrollable::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 243, 255, 0.75);
+}
+
+.menu-scrollable::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 35px;
+    pointer-events: none;
+    background: linear-gradient(0deg, rgba(5, 5, 5, 0.95), rgba(5, 5, 5, 0.1));
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.menu-scrollable.can-scroll::after {
+    opacity: 1;
+}
+
+.menu-scrollable.can-scroll::before {
+    content: '⬇';
+    position: absolute;
+    right: 12px;
+    bottom: 6px;
+    color: var(--primary-color);
+    font-size: 1.2em;
+    opacity: 0.85;
+    animation: pulse-arrow 1.2s infinite ease-in-out;
+}
+
+.menu-scrollable.scrolled-to-bottom::after,
+.menu-scrollable.scrolled-to-bottom::before {
+    opacity: 0;
+}
+
+@keyframes pulse-arrow {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(2px); }
+}

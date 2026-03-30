@@ -43,6 +43,25 @@ export class IntroScene extends BaseScene {
         this.skipButton.onmouseout = () => { this.skipButton.style.background = 'rgba(0,0,0,0.5)'; this.skipButton.style.color = '#fff'; };
         document.getElementById('ui-layer').appendChild(this.skipButton);
 
+        this.skipIntroEnabled = false;
+        setTimeout(() => { this.skipIntroEnabled = true; }, 2000);
+
+        this.boundSkipKeyDown = (evt) => {
+            if (evt.key === 'Escape' || evt.key === 'Enter' || evt.key === ' ') {
+                this.game.sceneManager.switchScene(SCENE_NAMES.MENU);
+            }
+        };
+        window.addEventListener('keydown', this.boundSkipKeyDown);
+
+        this.boundSkipClick = () => {
+            if (this.skipIntroEnabled) {
+                this.game.sceneManager.switchScene(SCENE_NAMES.MENU);
+            }
+        };
+        const glCanvas = document.getElementById('gl-canvas');
+        if (glCanvas) glCanvas.addEventListener('click', this.boundSkipClick);
+        document.getElementById('ui-layer').addEventListener('click', this.boundSkipClick);
+
         return Promise.resolve();
     }
 
@@ -64,6 +83,12 @@ export class IntroScene extends BaseScene {
     dispose() {
         this.game.audioManager.stopIntroDrone();
         if (this.skipButton) this.skipButton.remove();
+        if (this.boundSkipKeyDown) window.removeEventListener('keydown', this.boundSkipKeyDown);
+        if (this.boundSkipClick) {
+            const glCanvas = document.getElementById('gl-canvas');
+            if (glCanvas) glCanvas.removeEventListener('click', this.boundSkipClick);
+            document.getElementById('ui-layer').removeEventListener('click', this.boundSkipClick);
+        }
         super.dispose();
     }
 }

@@ -57,17 +57,17 @@ export class NoteFactory {
         mesh.userData.hit = false;
         mesh.userData.holding = false;
         mesh.userData.lane = lane;
-        mesh.userData.justSpawned = true;
         
         // Couleur selon la voie
         mesh.material.emissive.setHex(this.colors[lane]);
 
-        // Positionnement initial (Loin au fond) en attendant le premier update.
         // Les voies sont à x = -3, -1, 1, 3
-        const xPos = (lane - 1.5) * 2.0; 
-        
-        mesh.position.set(xPos, -1.0, -this.spawnDistance); // y = -1.0 pour être juste au dessus de la piste (-1.5)
-        
+        const xPos = (lane - 1.5) * 2.0;
+
+        // On initialise la note en première approximation. La vraie position Z est recalculée
+        // immédiatement dans update() selon le temps courant pour éviter toute contradiction.
+        mesh.position.set(xPos, -1.0, 0);
+
         return mesh;
     }
 
@@ -95,10 +95,13 @@ export class NoteFactory {
             mesh.userData.time = noteData.time;
             mesh.userData.duration = noteData.duration;
             
-            // Calcul précis de la position Z basé sur le temps
-            // Z = (Temps Note - Temps Chanson) * Vitesse
-            // Si la note est à 10s et la chanson à 5s, diff = 5s * 30 speed = 150 units loin
-            mesh.position.z = (noteData.time - songTime) * -this.noteSpeed; // Négatif car on regarde vers -Z
+            // Calcul cohérent de la position Z basé sur le temps restant jusqu'au hit.
+            // Note part de -spawnDistance (loin de la caméra), et se dirige vers 0.
+            // timeToReachPlayer = spawnDistance / noteSpeed
+            // z = -(noteTime - songTime) * noteSpeed
+            // Au spawn (songTime = noteTime - timeToReachPlayer) -> z = -spawnDistance
+            // Au moment du hit (songTime = noteTime) -> z = 0.
+            mesh.position.z = - (noteData.time - songTime) * this.noteSpeed;
 
             this.activeNotes.push(mesh);
             this.chartIndex++;
@@ -108,19 +111,12 @@ export class NoteFactory {
         for (let i = this.activeNotes.length - 1; i >= 0; i--) {
             const note = this.activeNotes[i];
 
-            if (note.userData.justSpawned) {
-                // Garder la position initiale du spawn pour le premier frame y compris
-                note.userData.justSpawned = false;
-            } else {
-                // On recalcule la position exacte à chaque frame pour rester synchro
-                // Si spawnDistance est 100 et noteSpeed 30 : noteTime=5, songTime=0 => Z=-150 ; songTime=5=>Z=0.
-                note.position.z = (songTime - note.userData.time) * this.noteSpeed;
-            }
+            // On recalcule la position exacte à chaque frame pour rester synchro
+            // Si noteTime=5, songTime=0 => Z=-150 ; songTime=5=>Z=0 ; songTime=6=>Z=30.
+            note.position.z = - (note.userData.time - songTime) * this.noteSpeed;
             
-            // NOTE: Dans Three.js, "devant" la caméra est +Z; ici on fait venir les notes de -Z vers 0.
-            
-            // Si la note dépasse la caméra (ratée)
-            if (note.position.z > 5) { // Un peu derrière la caméra
+            // Si la note dépasse la zone de frappe (ratée)
+            if (note.position.z > 5) { // Un peu derrière la ligne d'impact
                 if (!note.userData.hit) {
                      this.scoreManager.registerMiss();
                 }

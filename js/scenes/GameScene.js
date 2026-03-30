@@ -35,8 +35,8 @@ export class GameScene extends BaseScene {
         this.replayManager = null;
         this.multiplayerManager = null;
         
-        // Outil de génération
-        this.proceduralGenerator = new ProceduralGenerator();
+        // Outil de génération (sera récupéré depuis game global)
+        this.proceduralGenerator = null;
 
         // État de la scène
         this.isGameRunning = false;
@@ -49,6 +49,16 @@ export class GameScene extends BaseScene {
             if (!this.gameOverTriggered && !this.game.modifiers?.noFail) {
                 this.gameOverTriggered = true;
                 this.game.gameOver(this.scoreManager?.getStats ? this.scoreManager.getStats() : {});
+            }
+        };
+
+        this.boundPauseKeyDown = (evt) => {
+            if (evt.key === 'Escape') {
+                if (this.game.currentState === GAME_STATE.PLAYING && this.conductor) {
+                    this.game.togglePause(this.conductor);
+                } else if (this.game.currentState === GAME_STATE.PAUSED && this.conductor) {
+                    this.game.togglePause(this.conductor);
+                }
             }
         };
 
@@ -82,6 +92,7 @@ export class GameScene extends BaseScene {
         // 3. Logique de Jeu (Score & Replay)
         this.scoreManager = new ScoreManager(this.game, this.game.settings.drainRate || 15, this.game.isSpectator);
         this.hudManager = new HUDManager(this.game, this.scoreManager, this.particleSystem);
+        this.scoreManager.setHUDManager(this.hudManager);
         
         // Gestion Replay / Ghost
         this.replayManager = new ReplayManager();
@@ -95,6 +106,7 @@ export class GameScene extends BaseScene {
         if (this.game.isMultiplayer) {
             this.multiplayerManager = new MultiplayerManager(this.game, this.scoreManager);
             this.multiplayerManager.setSpectatorMode(this.game.isSpectator);
+            this.multiplayerManager.setConductor(this.conductor);
             this.multiplayerManager.connect();
         }
 
@@ -122,9 +134,10 @@ export class GameScene extends BaseScene {
                 const difficulty = this.game.settings.difficulty || 'Normal';
                 
                 // On passe le buffer audio complet au générateur
-                const chart = await this.proceduralGenerator.generate(
-                    this.game.audioManager.audioBuffer, 
-                    this.game.selectedSong.bpm, 
+                const generator = this.game.proceduralGenerator || this.proceduralGenerator;
+                const chart = await generator.generate(
+                    this.game.audioManager.audioBuffer,
+                    this.game.selectedSong.bpm,
                     difficulty
                 );
                 this.noteFactory.setChart(chart);
@@ -132,7 +145,9 @@ export class GameScene extends BaseScene {
 
         } catch (error) {
             console.error("Erreur lors du chargement :", error);
-            alert("Erreur de chargement audio. Retour au menu.");
+            if (typeof this.game.showToast === 'function') {
+                this.game.showToast("Erreur de chargement audio. Retour au menu.", 5000, 'error');
+            }
             this.game.sceneManager.switchScene(SCENE_NAMES.MENU);
             return;
         }
@@ -146,6 +161,9 @@ export class GameScene extends BaseScene {
         // 6. Démarrage
         this.isGameRunning = true;
         this.gameOverTriggered = false;
+
+        // Pause key listener
+        window.addEventListener('keydown', this.boundPauseKeyDown);
         
         // On lance le conducteur (offset pour la latence audio/visuelle)
         this.conductor.start(this.game.selectedSong.bpm, this.game.settings.offset || 0);
@@ -196,13 +214,12 @@ export class GameScene extends BaseScene {
         
         // Interface (HUD)
         if (this.hudManager) this.hudManager.update(delta, songTime, this.game.selectedSong?.duration || 1);
-        if (this.scoreManager) this.scoreManager.updateHealthUI(); // Si barre de vie
 
         // 3. Vérification de fin de partie
         // A. Boss Battle Activation
         if (this.bossManager && !this.bossManager.active && this.scoreManager.score >= 20000) {
             this.bossManager.activate();
-            this.game.createOverlay('BOSS BATTLE', [{ text: 'FIGHT', action: () => this.game.removeOverlay() }], '<div style="margin-top:10px; font-size:1.1em; color:#00ff00;">Le boss est activé !</div>', true);
+            this.game.createOverlay('BOSS BATTLE', [{ text: 'FIGHT', action: () => this.game.removeOverlay() }], `<div style="margin-top:10px; font-size:1.1em; color:#00ff00;">${this.game.localization.get('BOSS_BATTLE_ACTIVATED')}</div>`, true);
         }
 
         // A.1 Boss défait
@@ -220,11 +237,8 @@ export class GameScene extends BaseScene {
         }
 
         // A.2 Game Over (Plus de vie)
-        if (this.scoreManager.health <= 0 && !this.gameOverTriggered && !this.game.modifiers?.noFail) {
-            this.gameOverTriggered = true;
-            this.game.gameOver(this.scoreManager.getStats());
-            return;
-        }
+        // La transition est gérée par l'eventBus via healthDepleted (ScoreManager.emit),
+        // on évite une double invocation entre les callbacks et le check frame par frame.
 
         // B. Victoire (Fin de la chanson + petit délai)
         if (songTime > this.game.selectedSong.duration + 2.0 && !this.gameOverTriggered) {
@@ -236,7 +250,7 @@ export class GameScene extends BaseScene {
         this.gameOverTriggered = true;
         this.isGameRunning = false;
         
-        if (this.game.debug || (typeof window !== 'undefined' && window.BEATLINE_DEBUG)) console.log("Niveau terminé !");
+        if (this.game.debug || (typeof window !== 'undefined' && window.BEATLINE_DEBUG)) console.log(this.game.localization.get('LEVEL_COMPLETED'));
         
         // Sauvegarde du replay si ce n'était pas déjà un replay
         if (!this.game.isReplay && !this.game.isSpectator) {
@@ -278,6 +292,9 @@ export class GameScene extends BaseScene {
         if (this.game?.eventBus) {
             this.game.eventBus.off('healthDepleted', this.boundOnHealthDepleted);
         }
+
+        // Nettoyage du listener Escape pause
+        window.removeEventListener('keydown', this.boundPauseKeyDown);
 
         // Nettoyage des Managers
         if (this.particleSystem) this.particleSystem.dispose();

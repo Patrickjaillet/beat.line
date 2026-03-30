@@ -62,7 +62,7 @@ export class HUDManager {
         });
         
         const scoreLabel = document.createElement('div');
-        scoreLabel.innerText = 'SCORE';
+        scoreLabel.innerText = this.game.localization ? this.game.localization.get('SCORE') : 'SCORE';
         scoreLabel.style.fontSize = '0.8em';
         scoreLabel.style.color = '#aaa';
         scoreLabel.style.letterSpacing = '2px';
@@ -88,21 +88,21 @@ export class HUDManager {
         // Combo Panel (Center)
         this.comboEl = document.createElement('div');
         Object.assign(this.comboEl.style, {
-            position: 'absolute', top: '30%', left: '50%', transform: 'translate(-50%, -50%)',
+            position: 'absolute', top: '15%', left: '50%', transform: 'translate(-50%, -50%)',
             textAlign: 'center', opacity: '0', transition: 'opacity 0.2s'
         });
         
         // 3D Typography Structure
         this.comboEl.innerHTML = `
             <div class="combo-val" style="
-                font-size: 7em; fontWeight: 900; color: #fff; line-height: 1;
+                font-size: 2.5em; font-weight: 900; color: #fff; line-height: 1;
                 text-shadow: 3px 3px 0px var(--secondary-color), 6px 6px 0px rgba(0,0,0,0.5), 0 0 20px var(--primary-color);
                 transform: skew(-10deg); font-family: 'Orbitron', sans-serif;
             ">0</div>
             <div style="
                 font-size: 1.5em; letter-spacing: 10px; color: var(--primary-color); font-weight: bold;
                 text-shadow: 0 0 10px var(--primary-color); margin-top: -10px;
-            ">COMBO</div>
+            ">${this.game.localization ? this.game.localization.get('COMBO') : 'COMBO'}</div>
         `;
         this.container.appendChild(this.comboEl);
 
@@ -114,7 +114,7 @@ export class HUDManager {
         });
 
         const healthLabel = document.createElement('div');
-        healthLabel.innerText = 'INTEGRITY';
+        healthLabel.innerText = this.game.localization ? this.game.localization.get('INTEGRITY') : 'INTEGRITY';
         healthLabel.style.fontSize = '0.8em';
         healthLabel.style.color = '#aaa';
         healthLabel.style.letterSpacing = '2px';
@@ -230,7 +230,7 @@ export class HUDManager {
 
         // Update Combo
         if (this.scoreManager.combo > this.lastCombo) {
-            this.comboScale = 1.3; // Pop effect
+            this.comboScale = 1.1 + Math.min(1.4, this.scoreManager.combo / 30); // Pop effect grows with combo
             this.lastCombo = this.scoreManager.combo;
         } else if (this.scoreManager.combo < this.lastCombo) {
             this.lastCombo = this.scoreManager.combo;
@@ -238,13 +238,16 @@ export class HUDManager {
         
         this.comboScale = THREE.MathUtils.lerp(this.comboScale, 1.0, delta * 10);
 
-        if (this.scoreManager.combo > 5) {
+        if (this.scoreManager.combo >= 2) {
             const comboVal = this.comboEl.querySelector('.combo-val');
-            if (comboVal) comboVal.innerText = this.scoreManager.combo;
+            if (comboVal) {
+                comboVal.innerText = this.scoreManager.combo;
+                comboVal.style.fontSize = `${2 + Math.min(5, this.scoreManager.combo / 5)}em`;
+            }
             this.comboEl.style.opacity = '1';
             this.comboEl.style.transform = `translate(-50%, -50%) scale(${this.comboScale})`;
         } else {
-            this.comboEl.style.opacity = '0';
+            this.comboEl.style.opacity = '0.4';
         }
 
         // Update Health
@@ -316,6 +319,9 @@ export class HUDManager {
     }
 
     showJudgment(text, color) {
+        const now = performance.now();
+        if (!this.lastJudgmentEffectTime) this.lastJudgmentEffectTime = 0;
+
         const el = document.createElement('div');
         el.innerText = text;
         Object.assign(el.style, {
@@ -340,10 +346,13 @@ export class HUDManager {
 
         anim.onfinish = () => el.remove();
 
-        // Trigger Judgment VFX
-        if (this.particleSystem && text !== 'MISS') {
-            // Spawn particles in the center of the 3D view
-            const position = new THREE.Vector3(0, 1.5, 0); 
+        // All explosion particle effects are disabled.
+        return;
+
+        const shouldSpawn = (text === 'PERFECT' || text === 'GREAT' || text === 'GOOD') && (now - this.lastJudgmentEffectTime > 80);
+        if (this.particleSystem && shouldSpawn && this.particleSystem.activeParticles.length < 90) {
+            this.lastJudgmentEffectTime = now;
+            const position = new THREE.Vector3(0, 1.5, 0);
             const threeColor = new THREE.Color(color);
             this.particleSystem.spawnExplosion(position, threeColor.getHex());
         }

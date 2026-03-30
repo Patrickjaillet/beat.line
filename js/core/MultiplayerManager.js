@@ -4,6 +4,7 @@ export class MultiplayerManager {
     constructor(game, scoreManager) {
         this.game = game;
         this.scoreManager = scoreManager;
+        this.conductor = null;
         this.socket = null;
         this.opponentScore = 0;
         this.opponentCombo = 0;
@@ -61,6 +62,10 @@ export class MultiplayerManager {
         this.isSpectator = enabled;
     }
 
+    setConductor(conductor) {
+        this.conductor = conductor;
+    }
+
     createUI() {
         this.ui = document.createElement('div');
         Object.assign(this.ui.style, {
@@ -80,7 +85,7 @@ export class MultiplayerManager {
     sendUpdate(score, combo) {
         if (this.isSpectator) {
             // Simulate receiving data by "sending" dummy data to our mock socket
-            const songTime = this.game?.conductor?.songPosition ?? 0;
+            const songTime = this.conductor?.songPosition ?? (this.game?.conductor?.songPosition ?? 0);
             const spectatorScore = Math.max(score, Math.floor(songTime * 1000));
             if (this.socket) this.socket.send(JSON.stringify({ score: spectatorScore, combo: 0 }));
             return;

@@ -158,7 +158,7 @@ export class WorkshopScene extends BaseScene {
         }
 
         songList.push(newSong);
-        alert(`Downloaded ${chartData.title}!`);
+        if (this.game && typeof this.game.showToast === 'function') this.game.showToast(`Downloaded ${chartData.title}!`, 'success', 2200);
     }
 
     dispose() {
