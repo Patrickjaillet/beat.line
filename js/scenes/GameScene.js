@@ -44,6 +44,17 @@ export class GameScene extends BaseScene {
         
         // Caméra cinématique (si besoin)
         this.cameraShake = 0;
+
+        this.boundOnHealthDepleted = () => {
+            if (!this.gameOverTriggered && !this.game.modifiers?.noFail) {
+                this.gameOverTriggered = true;
+                this.game.gameOver(this.scoreManager?.getStats ? this.scoreManager.getStats() : {});
+            }
+        };
+
+        if (this.game?.eventBus) {
+            this.game.eventBus.on('healthDepleted', this.boundOnHealthDepleted);
+        }
     }
 
     async init() {
@@ -89,13 +100,13 @@ export class GameScene extends BaseScene {
 
         // 4. Chargement Audio et Génération des Notes
         try {
-            console.log("Chargement de la musique :", this.game.selectedSong.src);
+            if (this.game.debug || (typeof window !== 'undefined' && window.BEATLINE_DEBUG)) console.log("Chargement de la musique :", this.game.selectedSong.src);
             await this.game.audioManager.loadSong(this.game.selectedSong.src);
 
             // --- CORRECTIF IMPORTANT : DURÉE RÉELLE ---
             if (this.game.audioManager.audioBuffer) {
                 this.game.selectedSong.duration = this.game.audioManager.audioBuffer.duration;
-                console.log("Durée audio mise à jour :", this.game.selectedSong.duration);
+                if (this.game.debug || (typeof window !== 'undefined' && window.BEATLINE_DEBUG)) console.log("Durée audio mise à jour :", this.game.selectedSong.duration);
             }
             // ------------------------------------------
 
@@ -104,14 +115,14 @@ export class GameScene extends BaseScene {
 
             // Génération ou Chargement du Chart
             if (this.game.customChart) {
-                console.log("Chargement d'un chart personnalisé");
+                if (this.game.debug || (typeof window !== 'undefined' && window.BEATLINE_DEBUG)) console.log("Chargement d'un chart personnalisé");
                 this.noteFactory.setChart(this.game.customChart);
             } else {
-                console.log("Génération procédurale en cours...");
+                if (this.game.debug || (typeof window !== 'undefined' && window.BEATLINE_DEBUG)) console.log("Génération procédurale en cours...");
                 const difficulty = this.game.settings.difficulty || 'Normal';
                 
                 // On passe le buffer audio complet au générateur
-                const chart = this.proceduralGenerator.generate(
+                const chart = await this.proceduralGenerator.generate(
                     this.game.audioManager.audioBuffer, 
                     this.game.selectedSong.bpm, 
                     difficulty
@@ -128,6 +139,9 @@ export class GameScene extends BaseScene {
 
         // 5. Gestion des Entrées (Input)
         this.inputHandler = new InputHandler(this.noteFactory, this.conductor, this.game, this.replayManager);
+        if (this.inputHandler && this.hudManager && typeof this.inputHandler.setHUDManager === 'function') {
+            this.inputHandler.setHUDManager(this.hudManager);
+        }
 
         // 6. Démarrage
         this.isGameRunning = true;
@@ -147,11 +161,11 @@ export class GameScene extends BaseScene {
     update(delta, time) {
         if (!this.isGameRunning) return;
 
-        // 1. Mise à jour Audio & Temps
+        // 1. Update audio & timing
         this.conductor.update();
         const songTime = this.conductor.songPosition;
 
-        // Gestion Input Replay (si on regarde un replay)
+        // Handle replay input (if playing back a replay)
         if (this.game.isReplay) {
             this.replayManager.update(songTime, this.inputHandler);
         }
@@ -164,22 +178,49 @@ export class GameScene extends BaseScene {
         const kick = this.game.audioManager.getAverageFrequency(); // Récupère l'intensité des basses
         const isFever = this.scoreManager.combo > 50; // Mode Fever si combo > 50
         
-        if (this.backgroundManager) this.backgroundManager.update(time, kick, isFever);
+        if (this.backgroundManager) {
+            if (!this.game.settings.focusMode) this.backgroundManager.update(time, kick, isFever);
+            else this.backgroundManager.update(time, 0, false);
+        }
         if (this.trackManager) this.trackManager.update(time, kick, isFever);
         if (this.bossManager) this.bossManager.update(delta, time, this.camera);
         
         // Effets de Caméra (Warp, Feu, Particules)
-        if (this.particleSystem) this.particleSystem.update(delta);
-        if (this.comboFireManager) this.comboFireManager.update(time, this.scoreManager.combo);
-        if (this.warpManager) this.warpManager.update(time, isFever);
+        if (!this.game.settings.focusMode) {
+            if (this.particleSystem) this.particleSystem.update(delta);
+            if (this.comboFireManager) this.comboFireManager.update(time, this.scoreManager.combo);
+            if (this.warpManager) this.warpManager.update(time, isFever);
+        } else {
+            if (this.particleSystem) this.particleSystem.update(delta * 0.5);
+        }
         
         // Interface (HUD)
-        if (this.hudManager) this.hudManager.update(delta);
+        if (this.hudManager) this.hudManager.update(delta, songTime, this.game.selectedSong?.duration || 1);
         if (this.scoreManager) this.scoreManager.updateHealthUI(); // Si barre de vie
 
         // 3. Vérification de fin de partie
-        // A. Game Over (Plus de vie)
-        if (this.scoreManager.health <= 0 && !this.gameOverTriggered && !this.game.settings.noFail) {
+        // A. Boss Battle Activation
+        if (this.bossManager && !this.bossManager.active && this.scoreManager.score >= 20000) {
+            this.bossManager.activate();
+            this.game.createOverlay('BOSS BATTLE', [{ text: 'FIGHT', action: () => this.game.removeOverlay() }], '<div style="margin-top:10px; font-size:1.1em; color:#00ff00;">Le boss est activé !</div>', true);
+        }
+
+        // A.1 Boss défait
+        if (this.bossManager && this.bossManager.active && this.bossManager.health <= 0) {
+            this.bossManager.active = false;
+            this.bossManager.mesh.visible = false;
+            this.bossManager.healthBar.style.display = 'none';
+            this.game.createOverlay('BOSS DEFEAT', [{ text: 'CONTINUE', action: () => this.game.removeOverlay() }], '<div style="margin-top:10px; font-size:1.1em; color:#00ff00;">Boss vaincu, +2000 pts</div>', true);
+            if (this.scoreManager && typeof this.scoreManager.addBonus === 'function') {
+                this.scoreManager.addBonus(2000);
+            } else if (this.scoreManager) {
+                this.scoreManager.score += 2000;
+                this.scoreManager.updateUI();
+            }
+        }
+
+        // A.2 Game Over (Plus de vie)
+        if (this.scoreManager.health <= 0 && !this.gameOverTriggered && !this.game.modifiers?.noFail) {
             this.gameOverTriggered = true;
             this.game.gameOver(this.scoreManager.getStats());
             return;
@@ -195,7 +236,7 @@ export class GameScene extends BaseScene {
         this.gameOverTriggered = true;
         this.isGameRunning = false;
         
-        console.log("Niveau terminé !");
+        if (this.game.debug || (typeof window !== 'undefined' && window.BEATLINE_DEBUG)) console.log("Niveau terminé !");
         
         // Sauvegarde du replay si ce n'était pas déjà un replay
         if (!this.game.isReplay && !this.game.isSpectator) {
@@ -231,6 +272,11 @@ export class GameScene extends BaseScene {
         if (this.inputHandler) {
             window.removeEventListener(EVENTS.KEY_DOWN, this.inputHandler.boundKeyDown);
             window.removeEventListener(EVENTS.KEY_UP, this.inputHandler.boundKeyUp);
+        }
+
+        // Nettoyage des événements GameBus
+        if (this.game?.eventBus) {
+            this.game.eventBus.off('healthDepleted', this.boundOnHealthDepleted);
         }
 
         // Nettoyage des Managers

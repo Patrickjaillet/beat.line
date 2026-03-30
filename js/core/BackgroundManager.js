@@ -4,6 +4,8 @@ import { shibuyaNightFragment } from '../shaders/shibuyaNightFragment.js';
 import { sakuraTempleVertex } from '../shaders/sakuraTempleVertex.js';
 import { sakuraTempleFragment } from '../shaders/sakuraTempleFragment.js';
 
+const DEBUG = (typeof window !== 'undefined' && window.BEATLINE_DEBUG) || false;
+
 export class BackgroundManager {
     constructor(scene, game) {
         this.scene = scene;
@@ -73,7 +75,7 @@ export class BackgroundManager {
     }
 
     setCustomShader(fragmentShader) {
-        console.warn("setCustomShader is deprecated. Use themes instead.");
+        if (DEBUG) console.warn("setCustomShader is deprecated. Use themes instead.");
     }
 
     dispose() {

@@ -12,6 +12,17 @@ float grid(vec2 uv, float res, float width) {
     return 1.0 - smoothstep(width - 0.01, width + 0.01, grid_line);
 }
 
+uniform float uColorblind;
+
+vec3 applyColorblind(vec3 c) {
+    // Protanopia simulation matrix
+    vec3 outColor;
+    outColor.r = dot(c, vec3(0.567, 0.433, 0.0));
+    outColor.g = dot(c, vec3(0.558, 0.442, 0.0));
+    outColor.b = dot(c, vec3(0.0,   0.242, 0.758));
+    return outColor;
+}
+
 void main() {
     vec2 uv = vUv;
     
@@ -31,6 +42,7 @@ void main() {
     
     // Ajoute un effet de scanlines horizontales
     color *= 0.8 + 0.2 * sin(vUv.y * 1000.0);
+    if (uColorblind > 0.5) color = applyColorblind(color);
     
     // --- CORRECTION DU FADE ---
     // Avant : smoothstep(0.6, 0.9, vUv.y) -> Visible seulement au fond (0.9)

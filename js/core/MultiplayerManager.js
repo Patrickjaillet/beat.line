@@ -1,3 +1,5 @@
+const DEBUG = (typeof window !== 'undefined' && window.BEATLINE_DEBUG) || false;
+
 export class MultiplayerManager {
     constructor(game, scoreManager) {
         this.game = game;
@@ -10,24 +12,48 @@ export class MultiplayerManager {
     }
 
     connect() {
-        // Mock WebSocket for demonstration
-        this.socket = {
-            send: (data) => {
-                // Simulate receiving data back with a delay
-                setTimeout(() => {
-                    if (Math.random() > 0.1) return; // Simulate packet loss/irregular updates
-                    const parsed = JSON.parse(data);
-                    if (this.isSpectator) {
-                        // In spectator mode, simulate two players
-                        this.updateSpectatorUI(parsed.score * 1.1, parsed.score * 0.9);
-                    } else {
-                        // Mock opponent performing slightly worse
-                        this.updateOpponent(parsed.score * 0.9, parsed.combo); 
-                    }
-                }, 100);
-            },
-            close: () => {}
-        };
+        const backendUrl = this.game.settings.multiplayerServerUrl;
+
+        if (backendUrl) {
+            try {
+                this.socket = new WebSocket(backendUrl);
+                this.socket.onopen = () => {
+                    if (DEBUG) console.log('Connected to real multiplayer server:', backendUrl);
+                };
+                this.socket.onmessage = (evt) => {
+                    const data = JSON.parse(evt.data);
+                    this.updateOpponent(data.score || 0, data.combo || 0);
+                };
+                this.socket.onclose = () => {
+                    console.warn('Multiplayer socket closed, switching to local mock');
+                    this.socket = null;
+                };
+                this.socket.onerror = (err) => {
+                    console.error('Multiplayer socket error', err);
+                };
+            } catch (e) {
+                console.warn('Real multiplayer unavailable, using mock fallback', e);
+                this.socket = null;
+            }
+        }
+
+        if (!this.socket) {
+            this.socket = {
+                send: (data) => {
+                    setTimeout(() => {
+                        if (Math.random() > 0.1) return;
+                        const parsed = JSON.parse(data);
+                        if (this.isSpectator) {
+                            this.updateSpectatorUI(parsed.score * 1.1, parsed.score * 0.9);
+                        } else {
+                            this.updateOpponent(parsed.score * 0.9, parsed.combo);
+                        }
+                    }, 100);
+                },
+                close: () => {}
+            };
+        }
+
         this.createUI();
     }
 
@@ -54,7 +80,9 @@ export class MultiplayerManager {
     sendUpdate(score, combo) {
         if (this.isSpectator) {
             // Simulate receiving data by "sending" dummy data to our mock socket
-            if (this.socket) this.socket.send(JSON.stringify({ score: this.game.conductor.songPosition * 1000, combo: 0 }));
+            const songTime = this.game?.conductor?.songPosition ?? 0;
+            const spectatorScore = Math.max(score, Math.floor(songTime * 1000));
+            if (this.socket) this.socket.send(JSON.stringify({ score: spectatorScore, combo: 0 }));
             return;
         }
         if (this.socket) this.socket.send(JSON.stringify({ score, combo }));

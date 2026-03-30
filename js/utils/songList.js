@@ -44,7 +44,7 @@ export const songList = [
         theme: 'SHIBUYA'
     },
         {
-        id: 'track1',
+        id: 'track5',
         title: 'Nara',
         artist: 'Sandefjord',
         bpm: 128,
@@ -55,7 +55,7 @@ export const songList = [
         theme: 'SAKURA'
     },
     {
-        id: 'track2',
+        id: 'track6',
         title: 'Osaka',
         artist: 'Sandefjord',
         bpm: 140,
@@ -66,7 +66,7 @@ export const songList = [
         theme: 'SHIBUYA'
     },
     {
-        id: 'track3',
+        id: 'track7',
         title: 'Sapporo',
         artist: 'Sandefjord',
         bpm: 110,
@@ -77,7 +77,7 @@ export const songList = [
         theme: 'SAKURA'
     },
     {
-        id: 'track4',
+        id: 'track8',
         title: 'Tokyo',
         artist: 'Sandefjord',
         bpm: 180,
@@ -88,7 +88,7 @@ export const songList = [
         theme: 'SHIBUYA'
     },
     {
-        id: 'track4',
+        id: 'track9',
         title: 'Yokohama',
         artist: 'Sandefjord',
         bpm: 180,

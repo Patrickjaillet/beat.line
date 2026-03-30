@@ -6,6 +6,7 @@ export class InputHandler {
         this.conductor = conductor;
         this.game = game;
         this.replayManager = replayManager;
+        this.hudManager = null;
         this.boundKeyDown = this.onKeyDown.bind(this);
         this.boundKeyUp = this.onKeyUp.bind(this);
         this.editorCallback = null;
@@ -16,6 +17,10 @@ export class InputHandler {
 
     setEditorCallback(cb) {
         this.editorCallback = cb;
+    }
+
+    setHUDManager(hudManager) {
+        this.hudManager = hudManager;
     }
 
     getLane(code) {
@@ -46,6 +51,10 @@ export class InputHandler {
                 this.noteFactory.checkHit(lane, this.conductor.songPosition);
             } else {
                 this.noteFactory.checkRelease(lane, this.conductor.songPosition);
+            }
+
+            if (this.hudManager && typeof this.hudManager.triggerKey === 'function') {
+                this.hudManager.triggerKey(lane, isDown);
             }
         }
     }

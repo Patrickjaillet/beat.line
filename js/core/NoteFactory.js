@@ -10,12 +10,12 @@ export class NoteFactory {
         this.noteSpeed = speed;
         this.spawnDistance = 100; // Distance d'apparition (plus loin = on voit mieux venir)
 
-        // --- FORME 3D ---
-        // Largeur 1.5, Hauteur 0.5, Profondeur 0.5
+        // --- 3D SHAPE ---
+        // Width 1.5, Height 0.5, Depth 0.5
         this.geometry = new THREE.BoxGeometry(1.5, 0.5, 0.5);
         
-        // Ajustement du pivot pour que le cube soit posé SUR le sol (y=0) et pas à moitié dedans
-        // Si ta piste est à y=-1.5, on veut que les notes soient un peu au dessus
+        // Pivot adjust, so the cube sits ON the floor (y=0) instead of halfway through.
+        // For track at y=-1.5, we want notes just above it.
         this.geometry.translate(0, 0, 0); 
 
         // Couleurs des 4 voies (Rose, Cyan, Cyan, Rose)
@@ -57,11 +57,12 @@ export class NoteFactory {
         mesh.userData.hit = false;
         mesh.userData.holding = false;
         mesh.userData.lane = lane;
+        mesh.userData.justSpawned = true;
         
         // Couleur selon la voie
         mesh.material.emissive.setHex(this.colors[lane]);
 
-        // Positionnement initial (Loin au fond)
+        // Positionnement initial (Loin au fond) en attendant le premier update.
         // Les voies sont à x = -3, -1, 1, 3
         const xPos = (lane - 1.5) * 2.0; 
         
@@ -106,18 +107,17 @@ export class NoteFactory {
         // 2. Déplacer les notes actives
         for (let i = this.activeNotes.length - 1; i >= 0; i--) {
             const note = this.activeNotes[i];
+
+            if (note.userData.justSpawned) {
+                // Garder la position initiale du spawn pour le premier frame y compris
+                note.userData.justSpawned = false;
+            } else {
+                // On recalcule la position exacte à chaque frame pour rester synchro
+                // Si spawnDistance est 100 et noteSpeed 30 : noteTime=5, songTime=0 => Z=-150 ; songTime=5=>Z=0.
+                note.position.z = (songTime - note.userData.time) * this.noteSpeed;
+            }
             
-            // On recalcule la position exacte à chaque frame pour rester synchro
-            const targetZ = (note.userData.time - songTime) * this.noteSpeed; // Positif : vient vers nous (0)
-            
-            // NOTE: Dans Three.js, "devant" la caméra est +Z, mais souvent on fait venir de -Z vers +Z ou l'inverse.
-            // Dans ton code original, tu semblais faire venir de -Z vers 0.
-            // Corrigeons pour que Z=0 soit le point d'impact (la caméra) et elles viennent de loin (-100).
-            
-            // Si spawnDistance est 100, et noteSpeed 30.
-            // Une note à 5s, chanson à 0s -> Z = -150.
-            // Chanson à 5s -> Z = 0.
-            note.position.z = (songTime - note.userData.time) * this.noteSpeed; 
+            // NOTE: Dans Three.js, "devant" la caméra est +Z; ici on fait venir les notes de -Z vers 0.
             
             // Si la note dépasse la caméra (ratée)
             if (note.position.z > 5) { // Un peu derrière la caméra
@@ -174,6 +174,17 @@ export class NoteFactory {
             note.userData.holding = false;
             const endTime = note.userData.time + note.userData.duration;
             this.scoreManager.judge(songTime - endTime);
+        }
+    }
+
+    spawnComboBurst() {
+        if (this.particleSystem && typeof this.particleSystem.spawnComboBurst === 'function') {
+            this.particleSystem.spawnComboBurst();
+            return;
+        }
+        // fallback minimal effect
+        if (this.particleSystem && typeof this.particleSystem.spawnExplosion === 'function') {
+            this.particleSystem.spawnExplosion(new THREE.Vector3(0, 0, 0), 0xffd700);
         }
     }
 }

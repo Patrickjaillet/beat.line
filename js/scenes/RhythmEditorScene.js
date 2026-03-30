@@ -54,8 +54,8 @@ export class RhythmEditorScene extends BaseScene {
             return;
         }
         if (e.code === 'Enter') {
-            console.log("GENERATED CHART:", JSON.stringify({ notes: this.recordedNotes }));
-            alert("Chart output to console!");
+            if (this.game.debug || (typeof window !== 'undefined' && window.BEATLINE_DEBUG)) console.log("GENERATED CHART:", JSON.stringify({ notes: this.recordedNotes }));
+            this.game.showNotification("Chart output to console!");
             return;
         }
 

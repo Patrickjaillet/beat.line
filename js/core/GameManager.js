@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { GAME_STATE, EVENTS, SCENE_NAMES } from '../utils/constants.js';
+
+const GAME_DEBUG = (typeof window !== 'undefined' && window.BEATLINE_DEBUG) || false;
 import { SceneManager } from './SceneManager.js';
 import { AudioManager } from './AudioManager.js';
 import { EffectsManager } from './EffectsManager.js';
@@ -8,6 +10,7 @@ import { LeaderboardManager } from './LeaderboardManager.js';
 import { ProfileManager } from './ProfileManager.js';
 import { AchievementManager } from './AchievementManager.js';
 import { TournamentManager } from './TournamentManager.js';
+import { EventBus } from './EventBus.js';
 import { IntroScene } from '../scenes/IntroScene.js';
 import { MenuScene } from '../scenes/MenuScene.js';
 import { GameScene } from '../scenes/GameScene.js';
@@ -75,6 +78,8 @@ export class GameManager {
         this.multiplayerSocket = null;
         this.currentCampaignLevel = -1;
         this.customChart = null;
+
+        this.eventBus = new EventBus();
         
         this.modifiers = {
             hidden: false,
@@ -114,6 +119,7 @@ export class GameManager {
         this.campaignManager = new CampaignManager();
         this.leaderboardManager = new LeaderboardManager();
         this.profileManager = new ProfileManager();
+        this.campaignManager.setProfileManager(this.profileManager);
         this.achievementManager = new AchievementManager(this);
         this.tournamentManager = new TournamentManager();
         this.sceneManager = new SceneManager(this);
@@ -203,7 +209,7 @@ export class GameManager {
     applySkin() {
         const s = this.settings.skin;
         if (this.effectsManager) {
-            this.effectsManager.bloomPass.strength = s.bloom.strength;
+            this.effectsManager.setBloomBaseStrength(s.bloom.strength);
             this.effectsManager.bloomPass.radius = s.bloom.radius;
             this.effectsManager.bloomPass.threshold = s.bloom.threshold;
         }
@@ -241,6 +247,16 @@ export class GameManager {
         }
     }
 
+    showNotification(message) {
+        // Reuse overlay mechanism for non-blocking notification.
+        this.createOverlay('NOTICE', [
+            {
+                text: 'OK',
+                action: () => this.removeOverlay()
+            }
+        ], `<div style="font-size:1.1em; margin-top:8px; color:#ffffff;">${message}</div>`, true);
+    }
+
     gameOver(stats) {
         if (stats.health <= 0) {
             this.audioManager.playGameOverSFX();
@@ -249,8 +265,7 @@ export class GameManager {
         this.currentState = GAME_STATE.GAMEOVER;
         if (this.isCampaign) {
             const passed = this.campaignManager.checkCompletion(this.currentCampaignLevel, stats);
-            if (passed) alert("LEVEL CLEARED! NEXT LEVEL UNLOCKED.");
-            else alert("LEVEL FAILED. TRY AGAIN.");
+            this.showNotification(passed ? "LEVEL CLEARED! NEXT LEVEL UNLOCKED." : "LEVEL FAILED. TRY AGAIN.");
             this.sceneManager.switchScene(SCENE_NAMES.CAMPAIGN);
             return;
         }
@@ -271,10 +286,10 @@ export class GameManager {
             // XP & Badges
             const xpEarned = Math.floor(stats.score / 100);
             const leveledUp = this.profileManager.addXP(xpEarned);
-            if (leveledUp) alert(`LEVEL UP! You are now Level ${this.profileManager.data.level}`);
+            if (leveledUp) this.showNotification(`LEVEL UP! You are now Level ${this.profileManager.data.level}`);
             
             const newBadge = this.profileManager.checkBadges();
-            if (newBadge) alert("NEW BADGE UNLOCKED!");
+            if (newBadge) this.showNotification("NEW BADGE UNLOCKED!");
             
             // Update Quests
             this.questManager.updateProgress('score', stats.score);
@@ -304,13 +319,19 @@ export class GameManager {
         const el = document.documentElement;
         const rfs = el.requestFullscreen || el.webkitRequestFullScreen || el.mozRequestFullScreen || el.msRequestFullscreen;
         if (rfs) {
-            rfs.call(el).catch(e => console.log("Fullscreen blocked", e));
+            rfs.call(el).catch(e => {
+                if (GAME_DEBUG) console.log("Fullscreen blocked", e);
+            });
         }
     }
 
     createOverlay(title, buttons, extraHtml = '', transparent = false) {
         this.removeOverlay();
         this.overlay = document.createElement('div');
+        this.overlay.setAttribute('role', 'dialog');
+        this.overlay.setAttribute('aria-modal', 'true');
+        this.overlay.setAttribute('aria-label', title);
+        this.overlay.tabIndex = -1;
         Object.assign(this.overlay.style, {
             position: 'absolute', top: '0', left: '0', width: '100%', height: '100%',
             background: transparent ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column',
@@ -372,14 +393,53 @@ export class GameManager {
                 b.onmouseover = () => this.audioManager.playPowerUpSFX();
             }
 
+            b.setAttribute('aria-label', btn.text);
+            b.tabIndex = 0;
+            b.onkeydown = (evt) => {
+                if (evt.key === 'Enter' || evt.key === ' ') {
+                    evt.preventDefault();
+                    b.click();
+                }
+            };
+
             b.onclick = () => { if(btn.text === 'QUIT' || btn.text === 'BACK TO MENU') this.removeOverlay(); btn.action(); };
             btnContainer.appendChild(b);
         });
         document.body.appendChild(this.overlay);
+        this.overlay.focus();
+
+        this.overlayKeyHandler = (evt) => {
+            if (evt.key === 'Escape' || evt.key === 'Esc') {
+                this.removeOverlay();
+            }
+            if (evt.key === 'Tab') {
+                const focusable = Array.from(this.overlay.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+                    .filter(el => !el.hasAttribute('disabled'));
+                if (focusable.length === 0) return;
+
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+
+                if (!evt.shiftKey && document.activeElement === last) {
+                    evt.preventDefault();
+                    first.focus();
+                } else if (evt.shiftKey && document.activeElement === first) {
+                    evt.preventDefault();
+                    last.focus();
+                }
+            }
+        };
+
+        this.overlay.addEventListener('keydown', this.overlayKeyHandler);
     }
 
     removeOverlay() {
-        if (this.overlay) { this.overlay.remove(); this.overlay = null; }
+        if (this.overlay) {
+            this.overlay.removeEventListener('keydown', this.overlayKeyHandler);
+            this.overlay.remove();
+            this.overlay = null;
+            this.overlayKeyHandler = null;
+        }
     }
 
     async enterVR() {
@@ -390,10 +450,10 @@ export class GameManager {
                 });
                 this.renderer.xr.setSession(session);
             } else {
-                alert("VR not supported on this device.");
+                this.showNotification("VR not supported on this device.");
             }
         } else {
-            alert("WebXR not found.");
+            this.showNotification("WebXR not found.");
         }
     }
 
@@ -402,7 +462,7 @@ export class GameManager {
             try {
                 const adapter = await navigator.gpu.requestAdapter();
                 if (adapter) {
-                    console.log("WebGPU Hardware Acceleration: Available");
+                    if (GAME_DEBUG) console.log("WebGPU Hardware Acceleration: Available");
                 }
             } catch (e) {
                 console.warn("WebGPU not supported:", e);
@@ -416,9 +476,17 @@ export class GameManager {
         
         const dummyScene = new THREE.Scene();
         const dummyCamera = new THREE.PerspectiveCamera();
-        const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+        const boxGeo = new THREE.BoxGeometry();
+        const boxMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const mesh = new THREE.Mesh(boxGeo, boxMat);
         dummyScene.add(mesh);
         this.renderer.compile(dummyScene, dummyCamera);
+
+        // Dispose temporary resources after compile to avoid leaks.
+        boxGeo.dispose();
+        boxMat.dispose();
+        dummyScene.remove(mesh);
+        dummyScene.dispose?.(); // if available
     }
 
     async cloudSave() {
@@ -459,11 +527,26 @@ export class GameManager {
         
         await new Promise(r => setTimeout(r, 1500)); // Upload delay
         
-        // Actual Save (Force local save)
+        // Actual Save: local profile + optional backend endpoint
         if (this.profileManager && this.profileManager.save) this.profileManager.save();
         localStorage.setItem('beatline_last_cloud_sync', Date.now());
-        
-        text.innerText = 'SYNC COMPLETE';
+
+        if (this.settings.cloudSaveEndpoint) {
+            try {
+                await fetch(this.settings.cloudSaveEndpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ profile: this.profileManager.data, timestamp: Date.now() })
+                });
+                text.innerText = 'CLOUD SYNC OK';
+            } catch (e) {
+                text.innerText = 'CLOUD BACKUP FAILED (local saved)';
+                console.warn('Cloud save failed, local only', e);
+            }
+        } else {
+            text.innerText = 'LOCAL SAVE COMPLETE (no cloud endpoint)';
+        }
+
         text.style.color = '#00ff00';
         spinner.style.borderTopColor = '#00ff00';
         spinner.style.boxShadow = '0 0 20px rgba(0, 255, 0, 0.2)';
@@ -484,6 +567,10 @@ export class GameManager {
             this.loadingMesh.material.uniforms.uTime.value = time;
             this.renderer.render(this.loadingScene, this.loadingCamera);
             return;
+        }
+
+        if (this.gamepadManager) {
+            this.gamepadManager.update();
         }
 
         this.sceneManager.update(delta, time);

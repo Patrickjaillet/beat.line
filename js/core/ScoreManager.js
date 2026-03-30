@@ -31,16 +31,16 @@ export class ScoreManager {
         this.ui.className = 'score-container hud-text';
         this.ui.innerHTML = `
             <div class="score-label">Score</div>
-            <div class="score-value" id="score">000000</div>
-            <div class="combo-container" id="combo-box">
-                <div class="combo-value" id="combo">0</div>
+            <div class="score-value score-value-main">000000</div>
+            <div class="combo-container combo-box">
+                <div class="combo-value combo-value-main">0</div>
                 <div class="combo-label">COMBO</div>
             </div>
         `;
         
         this.feedback = document.createElement('div');
         this.feedback.className = 'feedback-container hud-text';
-        this.feedback.innerHTML = `<div class="feedback-text" id="feedback-item"></div>`;
+        this.feedback.innerHTML = `<div class="feedback-text feedback-item"></div>`;
         
         this.healthContainer = document.createElement('div');
         this.healthContainer.className = 'health-wrapper';
@@ -54,7 +54,7 @@ export class ScoreManager {
         document.getElementById('ui-layer').appendChild(this.feedback);
         document.getElementById('ui-layer').appendChild(this.healthContainer);
         
-        this.feedbackEl = this.feedback.querySelector('#feedback-item');
+        this.feedbackEl = this.feedback.querySelector('.feedback-item');
     }
 
     setNoteFactory(noteFactory) {
@@ -113,10 +113,26 @@ export class ScoreManager {
             this.noteFactory.spawnComboBurst();
             if (!this.feverActive) this.game.triggerShake(0.5);
         }
+
+        // Boss battle damage interaction
+        const activeScene = this.game.sceneManager?.activeScene;
+        if (activeScene && activeScene.bossManager?.active) {
+            activeScene.bossManager.takeDamage(1);
+        }
+
         this.updateUI();
+        if (this.game?.eventBus) {
+            this.game.eventBus.emit('scoreUpdated', { score: this.score, combo: this.combo });
+            this.game.eventBus.emit('comboUpdated', { combo: this.combo });
+        }
         if (this.multiplayerManager && !this.isGhost) this.multiplayerManager.sendUpdate(this.score, this.combo);
         this.game.achievementManager.checkCombo(this.combo);
         this.game.achievementManager.checkScore(this.score);
+    }
+
+    get multiplier() {
+        const base = 1 + Math.floor(this.combo / 10);
+        return base * (this.feverActive ? 2 : 1);
     }
 
     registerMiss() {
@@ -130,18 +146,25 @@ export class ScoreManager {
         this.updateHealthUI();
 
         if (this.hudManager) this.hudManager.showJudgment('MISS', '#ff0000');
-        this.game.triggerGlitch();
-        this.game.triggerShake(0.8);
+        if (this.game && typeof this.game.triggerGlitch === 'function') this.game.triggerGlitch();
+        if (this.game && typeof this.game.triggerShake === 'function') this.game.triggerShake(0.8);
         this.updateUI();
 
-        if (this.health <= 0 && !this.isGhost) {
-            this.game.gameOver(this.getStats());
+        // Emission d'événements pour dé-couplage et testabilité
+        if (this.game?.eventBus) {
+            this.game.eventBus.emit('scoreUpdated', { score: this.score, combo: this.combo });
+            this.game.eventBus.emit('healthUpdated', { health: this.health });
         }
+
+        if (this.health <= 0 && !this.isGhost && !this.game.modifiers?.noFail) {
+            if (this.game?.eventBus) this.game.eventBus.emit('healthDepleted', { score: this.score, combo: this.combo });
+        }
+
         if (this.multiplayerManager && !this.isGhost) this.multiplayerManager.sendUpdate(this.score, this.combo);
     }
 
     updateDynamicDifficulty(val) {
-        if (!this.game.settings.dynamicDifficulty) return;
+        if (!this.game || !this.game.settings || !this.game.settings.dynamicDifficulty) return;
         
         this.recentPerformance.push(val);
         if (this.recentPerformance.length > 10) this.recentPerformance.shift();
@@ -156,14 +179,18 @@ export class ScoreManager {
 
     activateFever() {
         this.feverActive = true;
-        this.game.setFever(true);
+        if (this.game && typeof this.game.setFever === 'function') {
+            this.game.setFever(true);
+        }
         this.showFeedback('FEVER MODE!', '#ff00ff');
     }
 
     deactivateFever() {
         if (!this.feverActive) return;
         this.feverActive = false;
-        this.game.setFever(false);
+        if (this.game && typeof this.game.setFever === 'function') {
+            this.game.setFever(false);
+        }
     }
 
     showFeedback(text, color) {
@@ -183,18 +210,32 @@ export class ScoreManager {
     updateUI() {
         if (this.isGhost && this.multiplayerManager) { this.multiplayerManager.updateOpponent(this.score, this.combo); return; }
         if (!this.ui) return;
-        this.ui.querySelector('#score').innerText = this.score.toString().padStart(6, '0');
-        this.ui.querySelector('#combo').innerText = this.combo;
-        const comboBox = this.ui.querySelector('#combo-box');
-        comboBox.style.opacity = this.combo > 5 ? '1' : '0';
+
+        const scoreEl = this.ui.querySelector('.score-value-main');
+        const comboEl = this.ui.querySelector('.combo-value-main');
+        const comboBox = this.ui.querySelector('.combo-box');
+
+        if (scoreEl) scoreEl.innerText = this.score.toString().padStart(6, '0');
+        if (comboEl) comboEl.innerText = this.combo;
+        if (comboBox) comboBox.style.opacity = this.combo > 5 ? '1' : '0';
+    }
+
+    addBonus(points) {
+        this.score += points;
+        this.updateUI();
+        if (this.multiplayerManager && !this.isGhost) this.multiplayerManager.sendUpdate(this.score, this.combo);
+        if (this.game && this.game.achievementManager) this.game.achievementManager.checkScore(this.score);
     }
 
     updateHealthUI() {
         if (this.healthBar) {
             this.healthBar.style.width = `${this.health}%`;
             this.healthBar.className = 'health-fill';
-            if (this.health <= 20) this.healthBar.classList.add('danger');
-            else if (this.health <= 50) this.healthBar.classList.add('warning');
+            const classList = this.healthBar.classList;
+            if (classList) {
+                if (this.health <= 20) classList.add('danger');
+                else if (this.health <= 50) classList.add('warning');
+            }
         }
     }
 

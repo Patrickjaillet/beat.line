@@ -6,9 +6,17 @@ export class ParticleSystem {
         this.game = game;
         this.pool = [];
         this.activeParticles = [];
+
         // Sparks: Elongated planes
         this.geometry = new THREE.PlaneGeometry(0.1, 0.5);
         this.shapeGeometry = new THREE.PlaneGeometry(0.3, 0.3);
+
+        // Pre-generate textures to avoid on-demand canvas freeze
+        this.textures = {};
+        ['Star', 'Heart', 'Note'].forEach(shape => {
+            this.textures[shape] = this.createCanvasTexture(shape);
+        });
+
         this.expandPool(100);
 
         // Shockwaves: Rings
@@ -18,10 +26,7 @@ export class ParticleSystem {
         this.expandRingPool(20);
     }
 
-    getTextureForShape(shape) {
-        if (!this.textures) this.textures = {};
-        if (this.textures[shape]) return this.textures[shape];
-
+    createCanvasTexture(shape) {
         const canvas = document.createElement('canvas');
         canvas.width = 64;
         canvas.height = 64;
@@ -49,9 +54,12 @@ export class ParticleSystem {
             ctx.fillText('♪', 10, 50);
         }
 
-        const texture = new THREE.CanvasTexture(canvas);
-        this.textures[shape] = texture;
-        return texture;
+        return new THREE.CanvasTexture(canvas);
+    }
+
+    getTextureForShape(shape) {
+        if (!this.textures) this.textures = {};
+        return this.textures[shape] || null;
     }
 
     expandPool(count) {
@@ -126,7 +134,8 @@ export class ParticleSystem {
             texture = this.getTextureForShape(shape);
         }
 
-        for (let i = 0; i < 12; i++) {
+        const count = this.game.settings.zenMode ? 6 : 12;
+        for (let i = 0; i < count; i++) {
             const p = this.getFreeParticle();
             p.visible = true;
             p.position.copy(pos);

@@ -5,6 +5,11 @@ import { SCENE_NAMES } from '../utils/constants.js';
 import { c64TronVertex } from '../shaders/c64TronVertex.js';
 import { c64TronFragment } from '../shaders/c64TronFragment.js';
 import { AvatarManager } from '../core/AvatarManager.js';
+import { ProfilePanel } from './menu/ProfilePanel.js';
+import { PlayPanel } from './menu/PlayPanel.js';
+import { ToolsPanel } from './menu/ToolsPanel.js';
+import { CommunityPanel } from './menu/CommunityPanel.js';
+import { SystemPanel } from './menu/SystemPanel.js';
 
 export class MenuScene extends BaseScene {
     constructor(game) {
@@ -16,8 +21,31 @@ export class MenuScene extends BaseScene {
         this.ticker = null;
         this.avatarManager = null;
         this.mouseX = 0;
+        this.profilePanel = new ProfilePanel(this.game);
+        this.playPanel = new PlayPanel(this);
+        this.toolsPanel = new ToolsPanel(this);
+        this.communityPanel = new CommunityPanel(this);
+        this.systemPanel = new SystemPanel(this);
         this.mouseY = 0;
         this.activeTab = 'PLAY';
+
+        this.boundMenuKeyDown = (evt) => {
+            if (evt.target && /input|textarea|select/i.test(evt.target.tagName)) return;
+            if (evt.key === 'ArrowLeft' || evt.key === 'ArrowRight') {
+                const tabs = ['PLAY', 'TOOLS', 'COMMUNITY', 'SYSTEM'];
+                const idx = tabs.indexOf(this.activeTab);
+                if (idx >= 0) {
+                    const next = evt.key === 'ArrowRight' ? (idx + 1) % tabs.length : (idx + tabs.length - 1) % tabs.length;
+                    this.activeTab = tabs[next];
+                    this.refreshMenuContent();
+                    evt.preventDefault();
+                }
+            }
+            if (evt.key === 'Escape') {
+                this.game.removeOverlay();
+            }
+        };
+
         
         // Snake Game State
         this.snakeData = null;
@@ -214,7 +242,7 @@ export class MenuScene extends BaseScene {
         });
         
         this.profileDisplay = profileDisplay;
-        this.updateProfileUI();
+        this.profilePanel.render(this.profileDisplay);
         document.getElementById('ui-layer').appendChild(profileDisplay);
 
         // --- TABS HEADER ---
@@ -264,6 +292,8 @@ export class MenuScene extends BaseScene {
 
         document.getElementById('ui-layer').appendChild(this.menuContainer);
 
+        window.addEventListener('keydown', this.boundMenuKeyDown);
+
         // Leaderboard Container
         this.leaderboardContainer = document.createElement('div');
         Object.assign(this.leaderboardContainer.style, {
@@ -278,27 +308,7 @@ export class MenuScene extends BaseScene {
 
     updateProfileUI() {
         if (!this.profileDisplay) return;
-        const data = this.game.profileManager.data;
-        const L = this.game.localization;
-        
-        const xpForNext = data.level * 1000;
-        const xpPct = (data.xp / xpForNext) * 100;
-        
-        const badgesHtml = data.badges ? data.badges.map(b => `<span title="${b.id}" style="margin-left:5px; cursor:help;">${b.icon}</span>`).join('') : '';
-
-        this.profileDisplay.innerHTML = `
-            <div style="font-size: 1.5em; text-shadow: var(--text-shadow); display: flex; align-items: center;">
-                <span>${data.username}</span>
-                <span style="font-size: 0.8em;">${badgesHtml}</span>
-            </div>
-            <div style="font-size: 1em; color: #fff; display: flex; align-items: center; gap: 10px;">
-                <span>${L.get('LEVEL')} ${data.level}</span>
-                <span style="color: #ffd700;">${data.credits} CR</span>
-            </div>
-            <div style="width: 250px; height: 6px; background: #333; border: 1px solid #555; position: relative; margin-top: 2px;">
-                <div style="width: ${xpPct}%; height: 100%; background: var(--primary-color); box-shadow: 0 0 5px var(--primary-color); transition: width 0.5s;"></div>
-            </div>
-        `;
+        this.profilePanel.render(this.profileDisplay);
     }
 
     refreshMenuContent() {
@@ -307,128 +317,26 @@ export class MenuScene extends BaseScene {
 
         switch(this.activeTab) {
             case 'PLAY':
-                this.renderPlayTab(L);
+                this.playPanel.render(this.contentContainer, L);
                 break;
             case 'TOOLS':
-                this.renderToolsTab(L);
+                this.toolsPanel.render(this.contentContainer, L);
                 break;
             case 'COMMUNITY':
-                this.renderCommunityTab(L);
+                this.communityPanel.render(this.contentContainer, L);
                 break;
             case 'SYSTEM':
-                this.renderSystemTab(L);
+                this.systemPanel.render(this.contentContainer, L);
                 break;
+        }
+
+        const firstButton = this.contentContainer.querySelector('button.interactive');
+        if (firstButton) {
+            firstButton.focus();
         }
     }
 
-    renderPlayTab(L) {
-        // Campaign Button
-        const campBtn = this.createMenuButton(L.get('CAMPAIGN'), () => this.game.sceneManager.switchScene(SCENE_NAMES.CAMPAIGN), '#00ff00');
-        this.contentContainer.appendChild(campBtn);
-
-        // Daily Challenge Button
-        const dailyBtn = this.createMenuButton(L.get('DAILY_CHALLENGE'), () => this.startDailyChallenge(), '#ffaa00');
-        this.contentContainer.appendChild(dailyBtn);
-
-        // Daily Quests Button
-        const questBtn = this.createMenuButton(L.get('DAILY_QUESTS'), () => this.showQuestsUI(), '#ffaa00', true);
-        this.contentContainer.appendChild(questBtn);
-
-        // Multiplayer Button
-        const mpBtn = this.createMenuButton(L.get('MULTIPLAYER'), () => this.startMultiplayer(), '#ff5555');
-        this.contentContainer.appendChild(mpBtn);
-
-        // Tournament Button
-        const tourBtn = this.createMenuButton(L.get('TOURNAMENT'), () => this.game.startTournament(), '#ff00ff');
-        this.contentContainer.appendChild(tourBtn);
-
-        // Practice Button
-        const pracBtn = this.createMenuButton(L.get('PRACTICE'), () => this.startPractice(), '#ffff00');
-        this.contentContainer.appendChild(pracBtn);
-
-        // Tutorial Button
-        const tutBtn = this.createMenuButton(L.get('TUTORIAL'), () => this.game.sceneManager.switchScene(SCENE_NAMES.TUTORIAL), 'var(--primary-color)');
-        this.contentContainer.appendChild(tutBtn);
-
-        // --- SONG SELECTION (Always visible in Play tab) ---
-        const divider = document.createElement('div');
-        Object.assign(divider.style, { height: '2px', background: '#333', margin: '10px 0' });
-        this.contentContainer.appendChild(divider);
-
-        // Difficulty Selector
-        const diffContainer = document.createElement('div');
-        diffContainer.style.display = 'flex';
-        diffContainer.style.gap = '10px';
-        diffContainer.style.justifyContent = 'center';
-        
-        ['Easy', 'Normal', 'Hard'].forEach(diff => {
-            const btn = document.createElement('button');
-            btn.innerText = diff;
-            btn.className = 'interactive';
-            Object.assign(btn.style, {
-                flex: '1', padding: '10px', background: 'rgba(0,0,0,0.5)',
-                border: '1px solid #333', color: '#fff', cursor: 'pointer', fontFamily: 'var(--font-family)'
-            });
-            btn.onclick = () => {
-                this.setDifficulty(diff);
-                Array.from(diffContainer.children).forEach(c => c.style.borderColor = '#333');
-                btn.style.borderColor = 'var(--primary-color)';
-            };
-            if (diff === this.game.settings.difficulty) btn.style.borderColor = 'var(--primary-color)';
-            diffContainer.appendChild(btn);
-        });
-        this.contentContainer.appendChild(diffContainer);
-
-        // Modifiers Button
-        const modsBtn = document.createElement('button');
-        modsBtn.innerText = L.get('GAME_MODIFIERS');
-        modsBtn.className = 'interactive';
-        Object.assign(modsBtn.style, {
-            padding: '10px', background: 'rgba(0,0,0,0.5)',
-            border: '1px solid #333', color: '#fff', cursor: 'pointer', fontFamily: 'var(--font-family)',
-            marginTop: '5px'
-        });
-        modsBtn.onclick = () => this.createModifiersUI();
-        this.contentContainer.appendChild(modsBtn);
-
-        this.songListContainer = document.createElement('div');
-        this.contentContainer.appendChild(this.songListContainer);
-        this.renderSongList();
-    }
-
-    renderToolsTab(L) {
-        // Editor Button
-        const editorBtn = this.createMenuButton(L.get('EDITOR'), () => this.openEditorSongSelect(), '#888', true);
-        this.contentContainer.appendChild(editorBtn);
-
-        // Rhythm Editor Button
-        const rhythmBtn = this.createMenuButton(L.get('RHYTHM_EDITOR'), () => this.startRhythmEditor(), 'var(--primary-color)', true);
-        this.contentContainer.appendChild(rhythmBtn);
-
-        // Replay Editor Button
-        const replayEditBtn = this.createMenuButton(L.get('REPLAY_EDITOR'), () => this.game.sceneManager.switchScene('REPLAY_EDITOR'), '#ff00ff', true);
-        this.contentContainer.appendChild(replayEditBtn);
-
-        // Visualizer Button
-        const vizBtn = this.createMenuButton(L.get('VISUALIZER'), () => this.startVisualizer(), '#aa00ff');
-        this.contentContainer.appendChild(vizBtn);
-
-        // Jukebox Button
-        const jukeBtn = this.createMenuButton(L.get('JUKEBOX'), () => this.game.sceneManager.switchScene(SCENE_NAMES.JUKEBOX), 'var(--primary-color)');
-        this.contentContainer.appendChild(jukeBtn);
-
-        // Custom Shader Button
-        const shaderBtn = this.createMenuButton('LOAD SHADER', () => this.triggerShaderUpload(), '#aa00aa');
-        this.contentContainer.appendChild(shaderBtn);
-
-        // Drop Zone Hint
-        const dropHint = document.createElement('div');
-        dropHint.innerText = 'DROP MP3 TO AUTO-GENERATE | DROP GLSL FOR BG';
-        Object.assign(dropHint.style, {
-            marginTop: '20px', color: '#555', fontSize: '0.8em', border: '1px dashed #333', padding: '10px', textAlign: 'center'
-        });
-        this.contentContainer.appendChild(dropHint);
-    }
+    // render* methods moved to panel components. Continue with the helper methods below.
 
     openEditorSongSelect() {
         const overlay = document.createElement('div');
@@ -467,47 +375,7 @@ export class MenuScene extends BaseScene {
         document.body.appendChild(overlay);
     }
 
-    renderCommunityTab(L) {
-        // Workshop Button
-        const workshopBtn = this.createMenuButton(L.get('WORKSHOP'), () => this.game.sceneManager.switchScene('WORKSHOP'), '#00ffaa');
-        this.contentContainer.appendChild(workshopBtn);
-
-        // DLC Button
-        const dlcBtn = this.createMenuButton(L.get('DLC_PACKS'), () => this.showDLCUI(), '#ff00ff');
-        this.contentContainer.appendChild(dlcBtn);
-
-        // Social Button
-        const socialBtn = this.createMenuButton(L.get('SOCIAL'), () => this.showSocialUI(), '#0088ff');
-        this.contentContainer.appendChild(socialBtn);
-
-        // Spectator Button
-        const specBtn = this.createMenuButton(L.get('SPECTATE'), () => this.startSpectator(), '#aaa');
-        this.contentContainer.appendChild(specBtn);
-    }
-
-    renderSystemTab(L) {
-        // Settings Button
-        const settingsBtn = this.createMenuButton(L.get('SETTINGS'), () => this.game.sceneManager.switchScene(SCENE_NAMES.SETTINGS), '#fff');
-        this.contentContainer.appendChild(settingsBtn);
-
-        // VR Button
-        const vrBtn = this.createMenuButton(L.get('ENTER_VR'), () => this.game.enterVR(), '#00ff00');
-        this.contentContainer.appendChild(vrBtn);
-
-        // Cloud Save Button
-        const cloudBtn = this.createMenuButton(L.get('CLOUD_SYNC'), () => this.game.cloudSave(), 'var(--primary-color)');
-        this.contentContainer.appendChild(cloudBtn);
-
-        // Credits Button
-        const credBtn = this.createMenuButton(L.get('CREDITS'), () => this.game.sceneManager.switchScene(SCENE_NAMES.CREDITS), '#fff');
-        this.contentContainer.appendChild(credBtn);
-
-        // Ghost Mode Button
-        if (this.game.replayData) {
-            const ghostBtn = this.createMenuButton('GHOST MODE', () => this.startGhostMode(), '#888888');
-            this.contentContainer.appendChild(ghostBtn);
-        }
-    }
+    // Community and System tab rendering is now handled by dedicated panel components.
 
     createMenuButton(text, onClick, color, dashed = false) {
         const btn = document.createElement('button');
@@ -530,6 +398,16 @@ export class MenuScene extends BaseScene {
             btn.style.background = 'rgba(0, 0, 0, 0.7)';
             btn.style.paddingLeft = '20px';
         };
+
+        btn.setAttribute('aria-label', text);
+        btn.tabIndex = 0;
+        btn.onkeydown = (evt) => {
+            if (evt.key === 'Enter' || evt.key === ' ') {
+                evt.preventDefault();
+                onClick();
+            }
+        };
+
         btn.onclick = onClick;
         return btn;
     }
@@ -603,7 +481,7 @@ export class MenuScene extends BaseScene {
             // We need to load the audio buffer to analyze it
             await this.game.audioManager.loadSong(url);
             
-            const chart = this.game.proceduralGenerator.generate(
+            const chart = await this.game.proceduralGenerator.generate(
                 this.game.audioManager.audioBuffer, 
                 120, 
                 this.game.settings.difficulty
@@ -1113,6 +991,7 @@ export class MenuScene extends BaseScene {
         this.game.audioManager.stopHDDNoise();
         if (this.avatarManager) this.avatarManager.dispose();
         window.removeEventListener('keydown', this.boundSnakeInput);
+        window.removeEventListener('keydown', this.boundMenuKeyDown);
         window.removeEventListener('dragover', (e) => e.preventDefault());
         window.removeEventListener('drop', (e) => this.handleDrop(e));
         super.dispose();

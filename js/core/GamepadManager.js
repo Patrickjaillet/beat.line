@@ -1,3 +1,5 @@
+const DEBUG = (typeof window !== 'undefined' && window.BEATLINE_DEBUG) || false;
+
 export class GamepadManager {
     constructor(game) {
         this.game = game;
@@ -6,7 +8,7 @@ export class GamepadManager {
         this.buttonsState = {}; // Previous state to detect press vs hold
         
         window.addEventListener("gamepadconnected", (e) => {
-            console.log("Gamepad connected at index %d: %s. %d buttons, %d axes.",
+            if (DEBUG) console.log("Gamepad connected at index %d: %s. %d buttons, %d axes.",
                 e.gamepad.index, e.gamepad.id,
                 e.gamepad.buttons.length, e.gamepad.axes.length);
             this.activeGamepadIndex = e.gamepad.index;
@@ -14,7 +16,7 @@ export class GamepadManager {
         });
 
         window.addEventListener("gamepaddisconnected", (e) => {
-            console.log("Gamepad disconnected from index %d: %s",
+            if (DEBUG) console.log("Gamepad disconnected from index %d: %s",
                 e.gamepad.index, e.gamepad.id);
             if (this.activeGamepadIndex === e.gamepad.index) {
                 this.activeGamepadIndex = null;

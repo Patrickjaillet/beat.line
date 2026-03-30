@@ -22,6 +22,7 @@ export class EffectsManager {
 
         // High Contrast Neon Tuning: High strength, low threshold for intense glow
         this.bloomPass = new UnrealBloomPass(new THREE.Vector2(width / 2, height / 2), 0.09, 0.5, 0.1);
+        this.bloomBaseStrength = this.bloomPass.strength;
         this.composer.addPass(this.bloomPass);
 
         this.filmPass = new FilmPass(0.5, 0.1, 1024, false); // Digital noise
@@ -37,17 +38,29 @@ export class EffectsManager {
         this.bloomPass.resolution.set(width / 2, height / 2);
     }
 
+    setBloomBaseStrength(strength) {
+        this.bloomBaseStrength = strength;
+        if (this.bloomPass) this.bloomPass.strength = strength;
+    }
+
     triggerGlitch(duration = 200) {
+        if (!this.glitchPass) return;
         this.glitchPass.enabled = true;
-        setTimeout(() => { this.glitchPass.enabled = false; }, duration);
+        setTimeout(() => {
+            if (this.glitchPass) {
+                this.glitchPass.enabled = false;
+            }
+        }, duration);
     }
 
     update(scene, camera, audioFreq) {
         this.renderPass.scene = scene;
         this.renderPass.camera = camera;
-        
-        // The base strength is now higher, so we can tone down the audio reaction a bit. Reduced in VR.
-        this.bloomPass.strength = (this.renderer.xr.isPresenting ? 0.05 : 0.09) + audioFreq * 0.05;
+
+        // Keep the skin-set base value, then add subtle audio-reactive modulation.
+        const base = this.renderer.xr.isPresenting ? (this.bloomBaseStrength || 0.05) : (this.bloomBaseStrength || 0.09);
+        this.bloomPass.strength = Math.max(0, base + (audioFreq * 0.05));
+
         this.composer.render();
     }
 }

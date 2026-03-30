@@ -29,8 +29,14 @@ export class ReplayManager {
 
         while (this.playbackIndex < this.recording.length && this.recording[this.playbackIndex].time <= songTime) {
             const event = this.recording[this.playbackIndex];
-            if (event.isDown) inputHandler.onKeyDown({ code: event.code });
-            else inputHandler.onKeyUp({ code: event.code });
+            // Replay should bypass DOM event repeat filtering and call input workflow directly
+            if (inputHandler && typeof inputHandler.handleInput === 'function') {
+                inputHandler.handleInput(event.code, event.isDown);
+            } else if (event.isDown) {
+                inputHandler.onKeyDown({ code: event.code, repeat: false });
+            } else {
+                inputHandler.onKeyUp({ code: event.code });
+            }
             this.playbackIndex++;
         }
     }

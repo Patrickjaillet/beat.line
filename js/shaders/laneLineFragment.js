@@ -1,7 +1,16 @@
 export const laneLineFragment = `
 uniform vec3 uColor;
 uniform float uOpacity;
+uniform float uColorblind;
 varying vec2 vUv;
+
+vec3 applyColorblind(vec3 c) {
+    vec3 outColor;
+    outColor.r = dot(c, vec3(0.567, 0.433, 0.0));
+    outColor.g = dot(c, vec3(0.558, 0.442, 0.0));
+    outColor.b = dot(c, vec3(0.0,   0.242, 0.758));
+    return outColor;
+}
 
 void main() {
     // Define the width of the border (e.g., 5% on each side)
@@ -14,6 +23,10 @@ void main() {
 
     // Mix the lane color with black based on the edge factor
     vec3 finalColor = mix(uColor, vec3(0.0, 0.0, 0.0), edgeFactor);
+
+    if (uColorblind > 0.5) {
+        finalColor = applyColorblind(finalColor);
+    }
     
     // Apply the overall opacity
     gl_FragColor = vec4(finalColor, uOpacity);

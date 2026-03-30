@@ -1,85 +1,80 @@
+const DEBUG = (typeof window !== 'undefined' && window.BEATLINE_DEBUG) || false;
+
 export class ProceduralGenerator {
     constructor() {}
 
-    generate(audioBuffer, bpm = 120, difficulty = 'Normal') {
+    async generate(audioBuffer, bpm = 120, difficulty = 'Normal') {
         if (!audioBuffer) return { notes: [] };
 
-        console.log(`Début génération : Audio ${audioBuffer.duration}s, BPM ${bpm}`);
+        if (DEBUG) console.log(`Début génération : Audio ${audioBuffer.duration}s, BPM ${bpm}`);
 
         const data = audioBuffer.getChannelData(0); // Canal gauche
         const sampleRate = audioBuffer.sampleRate;
         const notes = [];
         
-        // 1. Définir la grille rythmique (Snap Grid)
-        // On veut aligner les notes sur les noires (1 temps) ou les croches (1/2 temps)
         const secondsPerBeat = 60 / bpm;
-        let quantizeStep = secondsPerBeat / 2; // Par défaut : croche (1/2 temps)
-        let threshold = 0.15; // Seuil de volume (0 à 1)
+        let quantizeStep = secondsPerBeat / 2;
+        let threshold = 0.15;
 
-        // Ajustement selon difficulté
         if (difficulty === 'Easy') {
-            quantizeStep = secondsPerBeat; // Une note par temps max
-            threshold = 0.25; // Il faut un son plus fort pour déclencher
+            quantizeStep = secondsPerBeat;
+            threshold = 0.25;
         } else if (difficulty === 'Hard') {
-            quantizeStep = secondsPerBeat / 4; // Double-croche (1/4 temps)
+            quantizeStep = secondsPerBeat / 4;
             threshold = 0.10;
+        } else if (difficulty === 'Expert') {
+            quantizeStep = secondsPerBeat / 8;
+            threshold = 0.08;
         }
 
-        // Fenêtre d'analyse (environ 0.05s)
-        const windowSize = Math.floor(sampleRate * 0.05);
-        let maxVolumeInWindow = 0;
-        
-        // Pour éviter les doublons sur le même temps musical
+        const windowSize = Math.max(1, Math.floor(sampleRate * 0.05));
         let lastQuantizedTime = -1;
 
-        // 2. Parcourir TOUT le fichier audio
-        for (let i = 0; i < data.length; i += windowSize) {
-            
-            // Calculer le volume moyen (RMS) sur cette petite fenêtre
-            let sum = 0;
-            let count = 0;
-            for (let j = 0; j < windowSize && (i + j) < data.length; j++) {
-                let val = data[i + j];
-                sum += val * val;
-                count++;
-            }
-            const rms = Math.sqrt(sum / count);
+        const totalFrames = data.length;
+        const framesPerIteration = windowSize * 40; // environ 2s chunks on 44k
 
-            // 3. Détection de pic (Beat)
-            if (rms > threshold) {
-                // Temps brut en secondes
-                const rawTime = i / sampleRate;
+        for (let base = 0; base < totalFrames; base += framesPerIteration) {
+            const endFrame = Math.min(totalFrames, base + framesPerIteration);
+            for (let i = base; i < endFrame; i += windowSize) {
+                let sum = 0;
+                let count = 0;
+                const limit = Math.min(windowSize, totalFrames - i);
+                for (let j = 0; j < limit; j++) {
+                    const val = data[i + j];
+                    sum += val * val;
+                    count++;
+                }
 
-                // QUANTIZATION : On force le temps à tomber pile sur la grille
-                // Ex: si rawTime = 1.12s et step = 0.5s -> on arrondit à 1.0s
-                const snappedTime = Math.round(rawTime / quantizeStep) * quantizeStep;
+                if (count === 0) continue;
+                const rms = Math.sqrt(sum / count);
 
-                // Si ce temps est valide et qu'on n'a pas déjà mis une note ici
-                if (snappedTime > lastQuantizedTime && snappedTime < audioBuffer.duration) {
-                    
-                    // Choix de la ligne (Lane) déterministe
-                    // On utilise le temps pour créer un motif qui se répète pas au hasard
-                    const pattern = Math.floor(snappedTime * 1000) % 4; 
-                    
-                    // Petite variation pour éviter que ce soit trop linéaire
-                    let lane = 0;
-                    if (pattern === 0) lane = 1;
-                    else if (pattern === 1) lane = 2;
-                    else if (pattern === 2) lane = 0;
-                    else lane = 3;
+                if (rms > threshold) {
+                    const rawTime = i / sampleRate;
+                    const snappedTime = Math.round(rawTime / quantizeStep) * quantizeStep;
 
-                    notes.push({
-                        time: parseFloat(snappedTime.toFixed(3)),
-                        lane: lane,
-                        duration: 0
-                    });
+                    if (snappedTime > lastQuantizedTime && snappedTime < audioBuffer.duration) {
+                        const pattern = Math.floor(snappedTime * 1000) % 4;
+                        let lane = 0;
+                        if (pattern === 0) lane = 1;
+                        else if (pattern === 1) lane = 2;
+                        else if (pattern === 2) lane = 0;
+                        else lane = 3;
 
-                    lastQuantizedTime = snappedTime;
+                        notes.push({
+                            time: parseFloat(snappedTime.toFixed(3)),
+                            lane: lane,
+                            duration: 0
+                        });
+
+                        lastQuantizedTime = snappedTime;
+                    }
                 }
             }
+
+            await new Promise(resolve => setTimeout(resolve, 0));
         }
-        
-        console.log(`Génération terminée : ${notes.length} notes générées sur ${audioBuffer.duration} secondes.`);
-        return { notes: notes };
+
+        if (DEBUG) console.log(`Génération terminée : ${notes.length} notes générées sur ${audioBuffer.duration} secondes.`);
+        return { notes };
     }
 }

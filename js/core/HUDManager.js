@@ -94,7 +94,7 @@ export class HUDManager {
         
         // 3D Typography Structure
         this.comboEl.innerHTML = `
-            <div id="combo-val" style="
+            <div class="combo-val" style="
                 font-size: 7em; fontWeight: 900; color: #fff; line-height: 1;
                 text-shadow: 3px 3px 0px var(--secondary-color), 6px 6px 0px rgba(0,0,0,0.5), 0 0 20px var(--primary-color);
                 transform: skew(-10deg); font-family: 'Orbitron', sans-serif;
@@ -239,7 +239,7 @@ export class HUDManager {
         this.comboScale = THREE.MathUtils.lerp(this.comboScale, 1.0, delta * 10);
 
         if (this.scoreManager.combo > 5) {
-            const comboVal = this.comboEl.querySelector('#combo-val');
+            const comboVal = this.comboEl.querySelector('.combo-val');
             if (comboVal) comboVal.innerText = this.scoreManager.combo;
             this.comboEl.style.opacity = '1';
             this.comboEl.style.transform = `translate(-50%, -50%) scale(${this.comboScale})`;

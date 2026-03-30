@@ -26,7 +26,8 @@ export class TrackManager {
             uniforms: {
                 uTime: { value: 0 },
                 uBeat: { value: 0 },
-                uColor: { value: this.currentColor }
+                uColor: { value: this.currentColor },
+                uColorblind: { value: this.game.settings.colorblindMode ? 1.0 : 0.0 }
             },
             transparent: true,
             side: THREE.DoubleSide,
@@ -40,12 +41,14 @@ export class TrackManager {
         this.scene.add(this.mesh);
 
         // Add 4 distinct lane lines on top of the grid
-        const lineMaterial = new THREE.ShaderMaterial({
+        // Shared material usage with simple uniform updates (fewer shader programs)
+        const sharedLineMaterial = new THREE.ShaderMaterial({
             vertexShader: laneLineVertex,
             fragmentShader: laneLineFragment,
             uniforms: {
                 uColor: { value: new THREE.Color(this.baseColor) },
-                uOpacity: { value: 0.6 }
+                uOpacity: { value: 0.6 },
+                uColorblind: { value: this.game.settings.colorblindMode ? 1.0 : 0.0 }
             },
             blending: THREE.NormalBlending,
             transparent: true,
@@ -55,29 +58,47 @@ export class TrackManager {
         const lineGeometry = new THREE.PlaneGeometry(this.laneWidth, 100);
 
         for (const xPos of this.lanePositions) {
-            const line = new THREE.Mesh(lineGeometry, lineMaterial.clone());
+            const line = new THREE.Mesh(lineGeometry, sharedLineMaterial);
             line.rotation.x = -Math.PI / 2;
             line.position.set(xPos, -1.495, -50); // Slightly above the main grid
             line.renderOrder = 1; // Render lanes on top of grid
             this.scene.add(line);
             this.laneLines.push(line);
         }
+
+        // Keep single ref for uniform updates
+        this.laneMaterial = sharedLineMaterial;
     }
 
     update(time, pulse, isFever, swapFactor = 0) {
         if (this.mesh) {
             this.mesh.material.uniforms.uTime.value = time;
             this.mesh.material.uniforms.uBeat.value = pulse;
-            const target = isFever ? this.feverColor : this.baseColor;
-            this.currentColor.lerp(target, 0.05);
-            this.mesh.material.uniforms.uColor.value.copy(this.currentColor);
+
+            let target = isFever ? this.feverColor : this.baseColor;
+            if (this.game.settings.colorblindMode) {
+                target = new THREE.Color('#ffff00');
+                this.mesh.material.uniforms.uColor.value.copy(target);
+            } else {
+                this.currentColor.lerp(target, 0.05);
+                this.mesh.material.uniforms.uColor.value.copy(this.currentColor);
+            }
+
+            if (this.game.settings.zenMode) {
+                this.mesh.material.opacity = 0.2;
+            } else {
+                this.mesh.material.opacity = 1.0;
+            }
         }
 
-        this.laneLines.forEach((line, i) => {
-            line.material.uniforms.uColor.value.copy(this.currentColor);
-            line.material.uniforms.uOpacity.value = 0.6 + pulse * 0.2;
+        if (this.laneMaterial) {
+            this.laneMaterial.uniforms.uColor.value.copy(this.currentColor);
+            this.laneMaterial.uniforms.uOpacity.value = 0.6 + pulse * 0.2;
+            this.laneMaterial.uniforms.uColorblind.value = this.game.settings.colorblindMode ? 1.0 : 0.0;
+        }
 
-            // Handle lane swapping visual position
+        // Handle lane swapping visual position
+        this.laneLines.forEach((line, i) => {
             let lx = this.lanePositions[i];
             if (i === 1) lx = THREE.MathUtils.lerp(this.lanePositions[1], this.lanePositions[2], swapFactor);
             if (i === 2) lx = THREE.MathUtils.lerp(this.lanePositions[2], this.lanePositions[1], swapFactor);
