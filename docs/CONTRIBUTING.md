@@ -24,6 +24,19 @@ Thank you for your interest in contributing to Beat.Line! We welcome contributio
 -   `js/scenes/`: Scene logic (Menu, Game, etc.).
 -   `js/shaders/`: GLSL code.
 -   `assets/`: Images, audio, and fonts.
+-   `docs/`: Architecture and workflow, including `CHANGELOG`, `CONTRIBUTING`, `PROJECT_STRUCTURE`, `CORE_SYSTEMS`.
+
+## Required Tests Before PR
+
+- Unit tests: `npm test`
+- E2E tests: `npm run test:e2e` (Playwright keyboard/overlay scenario)
+- Ensure: no duplicate HTML IDs, no `alert()` calls, no critical `console.log()` in production mode.
+
+## Branching and Release
+
+- Feature branches in format `feature/<description>`.
+- PR title should mention issue number (si applicable).
+- Update `docs/CHANGELOG.md` pour chaque dev significative.
 
 ## Reporting Bugs
 

@@ -39,3 +39,20 @@ C'est le cœur de la génération automatique de niveaux.
 - Il analyse l'énergie du signal audio en utilisant une **moyenne mobile** pour détecter les pics (temps forts).
 - Il applique une **quantization** pour s'assurer que les notes générées sont parfaitement synchronisées sur la grille rythmique (noires, croches...) définie par le BPM.
 - Il génère un `chart` (une liste de notes avec leur temps et leur piste) qui peut ensuite être utilisé par `NoteFactory`.
+- Implémentation moderne : génération asynchrone par chunks (non-bloquant main thread) + support Expert.
+
+### EventBus (nouveau)
+
+- Fournit une couche d'événements découpant les managers (`healthDepleted`, `scoreUpdated`, etc.).
+- Utilisé pour connecter `ScoreManager` -> `GameScene` sans appeler `gameOver()` directement depuis le score.
+
+### GameManager (mise à jour)
+
+- Initialisation Vite / build system.
+- Support `createOverlay` accessible (ARIA, trap focus, Escape). 
+- State modifiers : `colorblindMode`, `zenMode`, `focusMode` intégrés côté rendu.
+
+### TrackManager + shaders
+
+- Mode daltonien dans shaders `tronGridFragment`, `laneLineFragment`. 
+- Unique ShaderMaterial pour lane lines (performance).

@@ -1,9 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
-
+/* Fonts are loaded locally by default for GDPR-friendly operation. */
 :root {
     --primary-color: #00f3ff;
+    --secondary-color: #ff00ff;
     --bg-color: #050505;
+    --text-shadow: 0 0 8px rgba(0, 243, 255, 0.8);
     --font-main: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    --muted-color: #a8a8a8;
 }
 
 body, html {

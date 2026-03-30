@@ -40,3 +40,15 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - Fixed audio duration issue in GameScene.
 - Fixed mouse interaction issues in Level Editor.
+- Fixed note position formula in NoteFactory (targetZ dead code removed, proper approach for note travel toward player).
+- Fixed ScoreManager noFail and GameScene gameOver double-trigger flow.
+- Fixed duplicate score/combo IDs in HUD UI (id -> class for combo val.)
+
+### Added
+- Added full E2E coverage for keyboard navigation/tab and overlay focus trap (Playwright).
+- Added Vite bundling config and scripts's `dev`, `build`, `serve`.
+- Added service worker with versioned cache + route policy.
+- Added content security policy and local font fallback.
+- Added shader colorblind mode and focus/zen mode visual behavior.
+- Added EventBus for manager event decoupling.
+- Added key controls tab support in MenuScene.
