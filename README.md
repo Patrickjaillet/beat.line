@@ -19,7 +19,7 @@
 ### Prerequisites
 
 - A modern web browser (Chrome, Firefox, Edge) with WebGL 2.0 support.
-- A local web server (e.g., Live Server, Apache, Nginx) to serve the files.
+- Node.js (>=18) for local build/test tooling.
 
 ### Installation
 
@@ -31,8 +31,36 @@
    ```bash
    cd beat-line
    ```
-3. Start your local server pointing to the `www` directory.
-4. Open `http://localhost:8080` (or your server's port) in your browser.
+3. Install dependencies:
+   ```bash
+   npm install
+   ```
+4. Run in development mode with Vite:
+   ```bash
+   npm run dev
+   ```
+   - Référence: http://localhost:5173
+
+5. Build for production:
+   ```bash
+   npm run build
+   ```
+6. Serve la version build:
+   ```bash
+   npm run serve
+   ```
+
+### Alternative without Node / local server
+
+- Si vous ne voulez pas de Node, servez le dossier `www` depuis n'importe quel serveur HTTP (ex. Apache, Nginx, Live Server).
+- Ouvrez `http://localhost:<port>`.
+
+### Tests
+
+- Unit tests : `npm test`.
+- End-to-end (E2E) : `npm run test:e2e` (Playwright Chrome, clavier + overlay).
+- CI : `.github/workflows/nodejs.yml`.
+
 
 ## Controls
 

@@ -1,0 +1,27 @@
+{
+  "name": "beatline",
+  "version": "1.0.0",
+  "description": "Beat.Line rhythm game",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "serve": "vite preview",
+    "test": "node js/tests/unitTests.js",
+    "test:e2e": "npx playwright test --project=chromium --reporter=list"
+  },
+  "keywords": [
+    "rhythm",
+    "game",
+    "threejs"
+  ],
+  "author": "BeatLine Dev",
+  "license": "MIT",
+  "dependencies": {
+    "three": "^0.183.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "vite": "^8.0.3"
+  }
+}
