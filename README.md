@@ -2,6 +2,8 @@
 
 **Beat.Line** is a high-performance, web-based rhythm game built with **Three.js** and **Web Audio API**. It features a cyberpunk aesthetic, procedural generation, and advanced gameplay mechanics inspired by classic arcade rhythm games.
 
+![Beat.Line Screenshot](../assets/screenshot.png)
+
 ## Features
 
 - **Core Gameplay:** 4-lane rhythm action with taps, holds, and lane swaps.

@@ -8,14 +8,7 @@
     <title>Beat.Line | Rhythm Game</title>
     <link rel="icon" type="image/x-icon" href="./favicon.ico">
     <link rel="stylesheet" href="./css/style.css">
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-            }
-        }
-    </script>
+    <script type="importmap" src="./js/importmap.json"></script>
 </head>
 <body>
     <div id="ui-layer"></div>
@@ -23,13 +16,7 @@
     <noscript>
         <p>Please enable JavaScript to play Beat.Line.</p>
     </noscript>
-    <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/service-worker.js').catch(err => {
-                console.warn('Service worker registration failed:', err);
-            });
-        }
-    </script>
+    <script src="./js/register-sw.js"></script>
     <script type="module" src="./js/main.js"></script>
 </body>
 </html>
